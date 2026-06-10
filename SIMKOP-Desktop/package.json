@@ -1,0 +1,43 @@
+{
+  "name": "simkop-desktop",
+  "version": "2.0.0",
+  "description": "Sistem Informasi Manajemen Koperasi",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "pack": "electron-builder --dir"
+  },
+  "author": "Admin Koperasi",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "firebase": "^10.12.0",
+    "electron-store": "^8.2.0",
+    "bcrypt": "^5.1.1",
+    "node-machine-id": "^1.1.12",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.simkop.desktop",
+    "productName": "SIMKOP Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    }
+  }
+}

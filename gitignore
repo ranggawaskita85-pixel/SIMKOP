@@ -1,0 +1,28 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Desktop build
+SIMKOP-Desktop/dist/
+SIMKOP-Desktop/out/
+
+# Mobile build
+SIMKOP-Mobile/android/app/build/
+SIMKOP-Mobile/android/build/
+SIMKOP-Mobile/android/.gradle/
+SIMKOP-Mobile/android/local.properties
+SIMKOP-Mobile/android/gradle/wrapper/gradle-wrapper.jar
+
+# Capacitor
+SIMKOP-Mobile/android/capacitor.settings.gradle
+SIMKOP-Mobile/android/app/src/main/assets/public/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml

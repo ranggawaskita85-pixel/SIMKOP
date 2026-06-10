@@ -1,0 +1,2020 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SIMKOP — Sistem Keuangan Koperasi</title>
+
+<!-- Tambahkan icon/logo -->
+<link rel="icon" type="image/png" href="icon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- ===== CAPACITOR ===== -->
+<script src="https://unpkg.com/@capacitor/core@5.7.0/dist/capacitor.js"></script>
+<script src="https://unpkg.com/@capacitor/android@5.7.0/dist/capacitor-android.js"></script>
+
+<!-- ===== FIREBASE ===== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          obsidian: {
+            DEFAULT: '#090d16',
+            card: '#131926',
+            border: '#1e293b',
+            hover: '#1e293b/50',
+            light: '#1e293b'
+          },
+          accent: {
+            indigo: '#6366f1',
+            violet: '#8b5cf6',
+            emerald: '#10b981',
+            rose: '#f43f5e',
+            teal: '#0d9488',
+            amber: '#f59e0b'
+          }
+        },
+        fontFamily: {
+          sans: ['Inter', 'sans-serif'],
+          display: ['Plus Jakarta Sans', 'sans-serif'],
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  /* Glassmorphism scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.3);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.2);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.4);
+  }
+
+  /* Soft pulse keyframes for status lights */
+  @keyframes neon-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+    50% { opacity: 0.6; transform: scale(0.92); box-shadow: 0 0 4px rgba(16, 185, 129, 0.1); }
+  }
+  .animate-neon-pulse {
+    animation: neon-pulse 2s infinite ease-in-out;
+  }
+
+  /* Fade screen in on page load */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .page-active {
+    display: block;
+    animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Tab active glow effects */
+  .glow-indigo:active, .glow-indigo.active {
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.15);
+  }
+
+  /* Virtual iPhone Simulator Styling */
+  @media(min-width: 1024px) {
+    .simulator-wrapper {
+      position: relative;
+      width: 425px;
+      height: 900px;
+      background: #000000;
+      border-radius: 54px;
+      box-shadow: 0 25px 60px -15px rgba(0,0,0,0.8), 0 0 0 12px #181d28, 0 0 0 13px #0f131a;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .simulator-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #090d16;
+      border-radius: 42px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .desktop-container {
+      background: radial-gradient(circle at top left, #1e1b4b 0%, #030712 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .app-content {
+      padding-bottom: 96px;
+    }
+  }
+
+  @media(max-width: 1023px) {
+    .simulator-wrapper {
+      width: 100%;
+      height: 100vh;
+      border-radius: 0;
+    }
+    .simulator-screen {
+      border-radius: 0;
+    }
+  }
+
+  /* Clean up default date inputs */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.5;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body class="font-sans antialiased text-slate-200 bg-obsidian">
+
+<div class="desktop-container">
+  <div class="simulator-wrapper">
+    <div class="simulator-screen">
+
+      <!-- Dynamic Island for desktop simulation notification -->
+      <div class="absolute top-2 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none hidden lg:block">
+        <div id="dynamicIsland" class="w-[120px] h-[32px] bg-black rounded-full flex items-center justify-center transition-all duration-500 ease-out shadow-lg shadow-black/50">
+          <span id="islandText" class="text-[10px] text-slate-400 font-bold opacity-0 transition-opacity duration-300"></span>
+        </div>
+      </div>
+
+      <!-- Simulator Status Bar -->
+      <div class="h-12 flex items-end justify-between px-8 pb-1.5 text-xs font-semibold text-slate-300 select-none z-40 bg-obsidian">
+        <span id="statusBarTime">10:22</span>
+        <div class="flex items-center gap-1.5">
+          <span>📶</span>
+          <span>🛜</span>
+          <div class="w-5 h-2.5 border border-slate-400 rounded-sm p-[1px] relative">
+            <div class="h-full w-[90%] bg-accent-emerald rounded-2xs"></div>
+            <div class="absolute w-[2px] h-[4px] bg-slate-400 right-[-3px] top-[2px] rounded-r-xs"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto app-content" id="appScrollContainer">
+        
+        <!-- HEADER PANEL -->
+        <div class="relative px-6 pt-6 pb-8 bg-gradient-to-b from-obsidian-card to-obsidian border-b border-obsidian-border rounded-b-[32px]">
+          <div class="absolute top-0 right-0 w-48 h-48 bg-accent-indigo/10 rounded-full blur-[64px] pointer-events-none"></div>
+          
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <span class="text-[10px] font-bold tracking-[2px] uppercase text-accent-indigo">SISTEM KEUANGAN TERPADU</span>
+              <h1 class="text-xl font-extrabold font-display tracking-tight text-white mt-1" id="namaKopDisplay">SIMKOP — Sistem Informasi Koperasi</h1>
+              
+              <!-- Collapsible settings toggle -->
+              <button onclick="toggleMeta()" class="mt-4 flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-800/40 hover:bg-slate-850 border border-slate-700/50 text-slate-300 active:scale-95 transition-all">
+                <span>⚙️ Identitas Koperasi</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>
+              </button>
+            </div>
+            
+            <div class="w-12 h-12 bg-gradient-to-tr from-accent-indigo to-accent-violet rounded-2xl flex items-center justify-center text-white shadow-lg shadow-accent-indigo/25 flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-6 h-6">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- COLLAPSIBLE METADATA FORM -->
+          <div id="kopMetaCollapse" class="hidden flex-col gap-4 mt-5 p-4 rounded-2xl bg-slate-900/50 border border-slate-800 backdrop-blur-md">
+            <div>
+              <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Nama Koperasi</label>
+              <input type="text" id="namaKop" placeholder="SIMKOP Koperasi..." oninput="document.getElementById('namaKopDisplay').textContent=this.value||'SIMKOP — Sistem Informasi Koperasi';markUnsaved()" class="w-full h-10 px-3 bg-slate-950/80 border border-slate-800 focus:border-accent-indigo rounded-xl text-xs text-white outline-none transition-all">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Periode Laporan</label>
+                <input type="month" id="periode" oninput="markUnsaved(); recalcAll()" class="w-full h-10 px-3 bg-slate-950/80 border border-slate-800 focus:border-accent-indigo rounded-xl text-xs text-white outline-none transition-all">
+              </div>
+              <div>
+                <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">No. Badan Hukum</label>
+                <input type="text" id="noBH" placeholder="No. BH-999..." oninput="markUnsaved()" class="w-full h-10 px-3 bg-slate-950/80 border border-slate-800 focus:border-accent-indigo rounded-xl text-xs text-white outline-none transition-all">
+              </div>
+            </div>
+            <div>
+              <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Alamat Kantor</label>
+              <input type="text" id="alamat" placeholder="Jl. Raya Koperasi No. 1..." oninput="markUnsaved()" class="w-full h-10 px-3 bg-slate-950/80 border border-slate-800 focus:border-accent-indigo rounded-xl text-xs text-white outline-none transition-all">
+            </div>
+          </div>
+        </div>
+
+        <!-- SYSTEM STATUS HUB -->
+        <div class="mx-4 mt-4 p-4 rounded-2xl bg-obsidian-card border border-obsidian-border flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div id="saveDot" class="w-2.5 h-2.5 rounded-full bg-accent-emerald animate-neon-pulse"></div>
+              <div>
+                <span id="saveTxt" class="text-xs font-bold text-slate-300">Aplikasi Sinkron</span>
+                <span id="saveTime" class="text-[10px] text-slate-500 block">Sesi Baru</span>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="saveAll(true)" class="px-3 py-1.5 bg-accent-indigo/10 hover:bg-accent-indigo/20 text-accent-indigo font-bold text-[10px] rounded-lg tracking-wider uppercase transition-all">💾 SIMPAN</button>
+              <button onclick="showResetModal()" class="px-3 py-1.5 bg-accent-rose/10 hover:bg-accent-rose/20 text-accent-rose font-bold text-[10px] rounded-lg tracking-wider uppercase transition-all">🗑️ RESET</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CASHFLOW MINI CHART VISUALIZATION -->
+        <div class="mx-4 mt-4 p-4 rounded-2xl bg-obsidian-card border border-obsidian-border">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h4 class="text-xs font-bold font-display text-white">Visualisasi Arus Kas</h4>
+              <p class="text-[10px] text-slate-500">Korelasi Pemasukan vs Pengeluaran</p>
+            </div>
+            <div class="flex items-center gap-3 text-[10px]">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 bg-accent-emerald rounded-full"></span> Masuk</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 bg-accent-rose rounded-full"></span> Keluar</span>
+            </div>
+          </div>
+          <div class="relative h-28 w-full flex items-end justify-center pt-2">
+            <!-- Simple dynamic inline SVG bar chart -->
+            <svg id="cashflowSvgChart" class="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="none">
+              <!-- Grid lines -->
+              <line x1="0" y1="20" x2="300" y2="20" stroke="#1e293b" stroke-dasharray="2,2"/>
+              <line x1="0" y1="50" x2="300" y2="50" stroke="#1e293b" stroke-dasharray="2,2"/>
+              <line x1="0" y1="80" x2="300" y2="80" stroke="#1e293b" stroke-dasharray="2,2"/>
+              
+              <!-- Dynamic Bars rendered by JS -->
+              <g id="chartBars"></g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- ═══ PAGE 1: KEUANGAN ═══ -->
+        <div id="pgKeu" class="page page-active">
+          <div class="px-4 pt-4">
+            <!-- FinTech Metric grid -->
+            <div class="grid grid-cols-2 gap-3 mb-5">
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-emerald rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Masuk</span>
+                <span class="text-md font-extrabold font-display text-accent-emerald" id="sumMasuk">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-rose rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Keluar</span>
+                <span class="text-md font-extrabold font-display text-accent-rose" id="sumKeluar">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-indigo rounded-2xl border-y border-r border-obsidian-border shadow-lg col-span-2 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Saldo Kas Bersih</span>
+                  <span class="text-lg font-extrabold font-display text-white" id="sumSaldo">Rp 0</span>
+                </div>
+                <div class="p-3 bg-accent-indigo/10 rounded-xl text-accent-indigo">💰</div>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-teal rounded-2xl border-y border-r border-obsidian-border shadow-lg col-span-2 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Anggota Koperasi</span>
+                  <span class="text-lg font-extrabold font-display text-accent-teal" id="sumAnggota">0 Anggota</span>
+                </div>
+                <div class="p-3 bg-accent-teal/10 rounded-xl text-accent-teal">👥</div>
+              </div>
+            </div>
+
+            <!-- SECTION: ANGGOTA -->
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-teal/10 flex items-center justify-center text-accent-teal">👥</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Simpanan Anggota Utama</h3>
+                  <p class="text-[10px] text-slate-500">Konfigurasi simpanan wajib & pokok awal</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[650px]">
+                  <thead>
+                    <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Nama Anggota</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Unit Usaha</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-28">Tgl Masuk</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-32">S. Pokok (Rp)</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-32">S. Wajib/Bln</th>
+                      <th class="py-3 px-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="bAnggota" class="divide-y divide-obsidian-border"></tbody>
+                  <tfoot>
+                    <tr class="bg-slate-950/30">
+                      <td colspan="4" class="py-3.5 px-4 text-right text-[10px] font-extrabold text-slate-400">TOTAL SIMPANAN</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-emerald text-xs" id="totPokok">Rp 0</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-emerald text-xs" id="totWajib">Rp 0</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button onclick="addAnggota()" class="w-[calc(100%-32px)] mx-4 my-4 py-3 bg-slate-950/40 hover:bg-slate-900 border border-dashed border-slate-700/60 rounded-xl text-xs font-bold text-slate-400 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+                <span>➕</span> Tambah Anggota Baru
+              </button>
+            </div>
+
+            <!-- SECTION: PEMASUKAN LAIN -->
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-emerald/10 flex items-center justify-center text-accent-emerald">📈</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Kas Pemasukan Lainnya</h3>
+                  <p class="text-[10px] text-slate-500">Simpanan sukarela, hibah & pemasukan eksternal</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Jenis Pemasukan</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Rincian / Ket</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-28">Tanggal</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-36">Nominal (Rp)</th>
+                      <th class="py-3 px-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="bMasuk" class="divide-y divide-obsidian-border"></tbody>
+                  <tfoot>
+                    <tr class="bg-slate-950/30">
+                      <td colspan="4" class="py-3.5 px-4 text-right text-[10px] font-extrabold text-slate-400">TOTAL PEMASUKAN LAIN</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-emerald text-xs" id="totMasuk">Rp 0</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button onclick="addMasuk()" class="w-[calc(100%-32px)] mx-4 my-4 py-3 bg-slate-950/40 hover:bg-slate-900 border border-dashed border-slate-700/60 rounded-xl text-xs font-bold text-slate-400 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+                <span>➕</span> Tambah Pemasukan
+              </button>
+            </div>
+
+            <!-- SECTION: PENGELUARAN -->
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-rose/10 flex items-center justify-center text-accent-rose">📉</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Kas Pengeluaran & Beban</h3>
+                  <p class="text-[10px] text-slate-500">Biaya operasional, pengurus, pengembalian & sewa</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[650px]">
+                  <thead>
+                    <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Deskripsi/Uraian</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 w-36">Kategori Beban</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Keterangan</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-28">Tanggal</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-36">Nominal (Rp)</th>
+                      <th class="py-3 px-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="bKeluar" class="divide-y divide-obsidian-border"></tbody>
+                  <tfoot>
+                    <tr class="bg-slate-950/30">
+                      <td colspan="5" class="py-3.5 px-4 text-right text-[10px] font-extrabold text-slate-400">TOTAL BEBAN OPERASIONAL</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-rose text-xs" id="totKeluar">Rp 0</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button onclick="addKeluar()" class="w-[calc(100%-32px)] mx-4 my-4 py-3 bg-slate-950/40 hover:bg-slate-900 border border-dashed border-slate-700/60 rounded-xl text-xs font-bold text-slate-400 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+                <span>➕</span> Tambah Pengeluaran
+              </button>
+            </div>
+
+            <!-- SECTION: INVENTARIS / ASET -->
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-amber/10 flex items-center justify-center text-accent-amber">🗄️</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Aset Tetap & Inventaris</h3>
+                  <p class="text-[10px] text-slate-500">Pencatatan aset sarana, prasarana, nilai perolehan & kondisi</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Aset / Barang</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-16">Jml</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-16">Sat</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-28">Tgl Peroleh</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-32">Harga Beli</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-32">Nilai Buku</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Kondisi</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Keterangan</th>
+                      <th class="py-3 px-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="bInv" class="divide-y divide-obsidian-border"></tbody>
+                  <tfoot>
+                    <tr class="bg-slate-950/30">
+                      <td colspan="5" class="py-3.5 px-4 text-right text-[10px] font-extrabold text-slate-400">TOTAL NILAI INVENTARIS (BUKU)</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-slate-400 text-[11px]" id="totHP">Rp 0</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-emerald text-xs" id="totNS">Rp 0</td>
+                      <td colspan="3"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button onclick="addInv()" class="w-[calc(100%-32px)] mx-4 my-4 py-3 bg-slate-950/40 hover:bg-slate-900 border border-dashed border-slate-700/60 rounded-xl text-xs font-bold text-slate-400 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+                <span>➕</span> Tambah Inventaris Aset
+              </button>
+            </div>
+
+            <!-- Signatures panel -->
+            <div class="footer flex flex-col gap-4 mt-6 p-5 bg-obsidian-card border border-obsidian-border rounded-2xl">
+              <div class="text-xs font-bold font-display text-white mb-2 text-center lg:text-left border-b border-obsidian-border pb-2">Lembar Validasi Laporan</div>
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div class="text-center p-4 bg-slate-950/30 border border-slate-800/60 rounded-xl">
+                  <span class="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest block mb-12">KETUA KOPERASI</span>
+                  <div class="border-t border-slate-700/80 pt-2"><input type="text" id="ttdKetua" placeholder="Nama Ketua..." class="w-full text-center bg-transparent border-none text-xs font-bold text-white outline-none" oninput="markUnsaved()"></div>
+                </div>
+                <div class="text-center p-4 bg-slate-950/30 border border-slate-800/60 rounded-xl">
+                  <span class="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest block mb-12">SEKRETARIS</span>
+                  <div class="border-t border-slate-700/80 pt-2"><input type="text" id="ttdSekretaris" placeholder="Nama Sekretaris..." class="w-full text-center bg-transparent border-none text-xs font-bold text-white outline-none" oninput="markUnsaved()"></div>
+                </div>
+                <div class="text-center p-4 bg-slate-950/30 border border-slate-800/60 rounded-xl">
+                  <span class="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest block mb-12">BENDAHARA</span>
+                  <div class="border-t border-slate-700/80 pt-2"><input type="text" id="ttdBendahara" placeholder="Nama Bendahara..." class="w-full text-center bg-transparent border-none text-xs font-bold text-white outline-none" oninput="markUnsaved()"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PAGE 2: SIMPANAN WAJIB ═══ -->
+        <div id="pgSimpWajib" class="page">
+          <div class="px-4 pt-4">
+            <div class="grid grid-cols-2 gap-3 mb-5">
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-emerald rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Kas Masuk Bulan Ini</span>
+                <span class="text-md font-extrabold font-display text-accent-emerald" id="swTotalBulan">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-indigo rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Rasio Lunas</span>
+                <span class="text-md font-extrabold font-display text-accent-indigo" id="swProgress">0%</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-teal rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Sudah Lunas</span>
+                <span class="text-sm font-extrabold text-white" id="swSudahBayar">0 Org</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-rose rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tertunggak</span>
+                <span class="text-sm font-extrabold text-accent-rose" id="swBelumBayar">0 Org</span>
+              </div>
+            </div>
+
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-accent-indigo/10 flex items-center justify-center text-accent-indigo">💳</div>
+                  <div>
+                    <h3 class="text-xs font-bold text-white">Penerimaan Bulanan Anggota</h3>
+                    <p class="text-[10px] text-slate-500">Pilih baris bulan anggota → Klik Bayar Kasir</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold text-slate-400">Periode Aktif:</span>
+                  <select id="swFilterBulan" onchange="updateSwSummaryCards()" class="h-8 px-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white outline-none focus:border-accent-indigo cursor-pointer"></select>
+                </div>
+              </div>
+
+              <!-- Payment Action dynamic logger -->
+              <div id="swLogContainer" class="hidden mx-5 mt-4 p-3 bg-accent-emerald/5 border border-accent-emerald/20 rounded-xl">
+                <h4 class="text-[10px] font-bold text-accent-emerald uppercase tracking-wider mb-2">📋 Log Pembayaran Terbaru</h4>
+                <div id="swLogList" class="flex flex-col gap-1.5 max-h-36 overflow-y-auto"></div>
+              </div>
+
+              <div id="swSummaryBar" class="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 border-b border-obsidian-border bg-slate-950/20"></div>
+
+              <!-- SW REKAP TABLE -->
+              <div class="p-4">
+                <h4 class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-3">📊 Ringkasan Status Simpanan Wajib Anggota</h4>
+                <div class="overflow-x-auto rounded-xl border border-obsidian-border">
+                  <table class="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                        <th class="py-2.5 px-3 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                        <th class="py-2.5 px-3 text-[9px] font-bold uppercase tracking-wider text-slate-400">Nama Anggota</th>
+                        <th class="py-2.5 px-3 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Ketetapan/Bln</th>
+                        <th class="py-2.5 px-3 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Bulan Lunas</th>
+                        <th class="py-2.5 px-3 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Bulan Tunggak</th>
+                        <th class="py-2.5 px-3 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-36">Total Disetor</th>
+                        <th class="py-2.5 px-3 text-[9px] font-bold uppercase tracking-wider text-slate-400 w-32">Kolektabilitas</th>
+                      </tr>
+                    </thead>
+                    <tbody id="bSwRekap" class="divide-y divide-obsidian-border text-xs"></tbody>
+                    <tfoot>
+                      <tr class="bg-slate-950/30">
+                        <td colspan="3" class="py-3 px-3 text-right text-[10px] font-extrabold text-slate-400">TOTAL KAS SIMPANAN WAJIB</td>
+                        <td class="py-3 px-3 text-center font-bold text-accent-emerald" id="swTotBulanLunas">0</td>
+                        <td class="py-3 px-3 text-center font-bold text-accent-rose" id="swTotBulanBelum">0</td>
+                        <td class="py-3 px-3 text-right font-extrabold text-accent-emerald" id="swTotSemuaBayar">Rp 0</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Interactive Dynamic Cashier Cards Grid -->
+              <div id="swGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 bg-slate-950/10"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PAGE 3: PRODUK ═══ -->
+        <div id="pgProduk" class="page">
+          <div class="px-4 pt-4">
+            <div class="grid grid-cols-3 gap-3 mb-5">
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-indigo rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Varian Produk</span>
+                <span class="text-md font-extrabold font-display text-accent-indigo" id="sumProduk">0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-amber rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Nilai Stok (HPP)</span>
+                <span class="text-md font-extrabold font-display text-accent-amber" id="sumStokHPP">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-emerald rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Nilai Jual Acuan</span>
+                <span class="text-md font-extrabold font-display text-accent-emerald" id="sumStokJual">Rp 0</span>
+              </div>
+            </div>
+
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-violet/10 flex items-center justify-center text-accent-violet">🛍️</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Master Produk & Inventori Usaha</h3>
+                  <p class="text-[10px] text-slate-500">Katalog komoditas, stok gudang & estimasi margin keuntungan</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[750px]">
+                  <thead>
+                    <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 w-16 text-center">Kode</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Nama Barang / Produk</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 w-32">Kategori</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-20">Stok</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-16">Sat</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-28">HPP (Rp)</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-28">Harga Jual</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-24">Margin</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-32">Total Valuasi</th>
+                      <th class="py-3 px-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="bProduk" class="divide-y divide-obsidian-border text-xs"></tbody>
+                  <tfoot>
+                    <tr class="bg-slate-950/30">
+                      <td colspan="4" class="py-3.5 px-4 text-right text-[10px] font-extrabold text-slate-400">JUMLAH STOK KESELURUHAN</td>
+                      <td class="py-3.5 px-4 text-center font-extrabold text-white" id="totStokQty">0</td>
+                      <td></td>
+                      <td class="py-3.5 px-4 text-right font-bold text-slate-400" id="totProdukHPP">Rp 0</td>
+                      <td class="py-3.5 px-4 text-right font-bold text-slate-400" id="totProdukJual">Rp 0</td>
+                      <td></td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-emerald text-xs" id="totProdukStok">Rp 0</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button onclick="addProduk()" class="w-[calc(100%-32px)] mx-4 my-4 py-3 bg-slate-950/40 hover:bg-slate-900 border border-dashed border-slate-700/60 rounded-xl text-xs font-bold text-slate-400 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+                <span>➕</span> Tambah Inventori Produk
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PAGE 4: PENJUALAN ═══ -->
+        <div id="pgJual" class="page">
+          <div class="px-4 pt-4">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-emerald rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pendapatan</span>
+                <span class="text-xs font-extrabold font-display text-accent-emerald" id="sumPend">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-rose rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total HPP</span>
+                <span class="text-xs font-extrabold font-display text-accent-rose" id="sumHPPJual">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-indigo rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Laba Usaha</span>
+                <span class="text-xs font-extrabold font-display text-accent-indigo" id="sumLabaKotor">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-teal rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Margin Kotor</span>
+                <span class="text-xs font-extrabold font-display text-accent-teal" id="sumMargin">0%</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-amber rounded-2xl border-y border-r border-obsidian-border shadow-lg col-span-2 md:col-span-1">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Transaksi</span>
+                <span class="text-xs font-extrabold font-display text-accent-amber" id="sumTx">0</span>
+              </div>
+            </div>
+
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-indigo/10 flex items-center justify-center text-accent-indigo">🧾</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Kasir Kas Kasir & Penjualan</h3>
+                  <p class="text-[10px] text-slate-500">Modul transaksi langsung anggota koperasi dengan akumulasi poin otomatis</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[1000px]">
+                  <thead>
+                    <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-28">Tanggal</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 w-24">No. Faktur</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Komoditas</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Pembeli (Anggota)</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-16">Qty</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-16">Sat</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-28">Harga Jual</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-28">Subtotal</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-28">HPP Pokok</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-24">Laba</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Poin</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Status</th>
+                      <th class="py-3 px-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="bJual" class="divide-y divide-obsidian-border text-xs"></tbody>
+                  <tfoot>
+                    <tr class="bg-slate-950/30">
+                      <td colspan="8" class="py-3.5 px-4 text-right text-[10px] font-extrabold text-slate-400">REKAP OMSET KASIR</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-emerald text-xs" id="totSubtotal">Rp 0</td>
+                      <td class="py-3.5 px-4 text-right font-bold text-slate-400" id="totHPPTot">Rp 0</td>
+                      <td class="py-3.5 px-4 text-right font-extrabold text-accent-indigo text-xs" id="totLabaTot">Rp 0</td>
+                      <td class="py-3.5 px-4 text-center font-extrabold text-accent-amber" id="totPoinTot">0 ⭐</td>
+                      <td colspan="2"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <button onclick="addJual()" class="w-[calc(100%-32px)] mx-4 my-4 py-3 bg-slate-950/40 hover:bg-slate-900 border border-dashed border-slate-700/60 rounded-xl text-xs font-bold text-slate-400 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+                <span>➕</span> Tambah Transaksi Kasir
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PAGE 5: POIN ANGGOTA ═══ -->
+        <div id="pgPoin" class="page">
+          <div class="px-4 pt-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-amber rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Poin Beredar</span>
+                <span class="text-sm font-extrabold text-accent-amber" id="sumTotPoin">0 ⭐</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-teal rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Anggota Aktif Belanja</span>
+                <span class="text-sm font-extrabold text-white" id="sumAnggotaBelanja">0 Orang</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-indigo rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Kerapatan Belanja</span>
+                <span class="text-sm font-extrabold text-accent-indigo" id="sumTxPoin">0 Tx</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-violet rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Loyalitas Indeks</span>
+                <span class="text-sm font-extrabold text-accent-violet" id="sumRataPoin">0 ⭐</span>
+              </div>
+            </div>
+
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-amber/10 flex items-center justify-center text-accent-amber">⭐</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Loyalitas Anggota (Raihan Poin)</h3>
+                  <p class="text-[10px] text-slate-500">Skor loyalitas terakumulasi langsung dari histori transaksi kasir</p>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[650px]">
+                  <thead>
+                    <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Nama Lengkap Anggota</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Jumlah Tx</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-36">Volume Belanja</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-28">Total Poin</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 w-32">Klasifikasi Tier</th>
+                      <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-36">Belanja Rata-Rata</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bPoin" class="divide-y divide-obsidian-border text-xs"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PAGE 6: LABA RUGI ═══ -->
+        <div id="pgLR" class="page">
+          <div class="px-4 pt-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-emerald rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Hasil Kotor</span>
+                <span class="text-sm font-extrabold text-accent-emerald" id="lrSumPend">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-rose rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Pengeluaran</span>
+                <span class="text-sm font-extrabold text-accent-rose" id="lrSumBeban">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-indigo rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">SHU Bruto Terkumpul</span>
+                <span class="text-sm font-extrabold text-accent-indigo" id="lrSumBersih">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-violet rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Profitibilitas Net</span>
+                <span class="text-sm font-extrabold text-accent-violet" id="lrMargin">0%</span>
+              </div>
+            </div>
+
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-violet/10 flex items-center justify-center text-accent-violet">📋</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Laporan Keuangan Laba Rugi</h3>
+                  <p class="text-[10px] text-slate-500">Kompilasi komprehensif seluruh transaksi & simpanan wajib secara otomatis</p>
+                </div>
+              </div>
+              <div class="p-4 flex flex-col gap-1 text-slate-300" id="lrBody"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ PAGE 7: SHU ═══ -->
+        <div id="pgSHU" class="page">
+          <div class="px-4 pt-4">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-indigo rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">SHU Bruto</span>
+                <span class="text-sm font-extrabold text-accent-indigo" id="shuBruto">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-emerald rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Dividen Anggota</span>
+                <span class="text-sm font-extrabold text-accent-emerald" id="shuAnggota">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-amber rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Kas Cadangan</span>
+                <span class="text-sm font-extrabold text-accent-amber" id="shuCadangan">Rp 0</span>
+              </div>
+              <div class="p-4 bg-obsidian-card border-l-4 border-accent-teal rounded-2xl border-y border-r border-obsidian-border shadow-lg">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Dana Insentif</span>
+                <span class="text-sm font-extrabold text-accent-teal" id="shuOps">Rp 0</span>
+              </div>
+            </div>
+
+            <div class="mb-6 bg-obsidian-card border border-obsidian-border rounded-2xl overflow-hidden shadow-xl">
+              <div class="flex items-center gap-3 px-5 py-4 bg-slate-900/60 border-b border-obsidian-border">
+                <div class="w-8 h-8 rounded-lg bg-accent-violet/10 flex items-center justify-center text-accent-violet">⚙️</div>
+                <div>
+                  <h3 class="text-xs font-bold text-white">Alokasi & Distribusi SHU</h3>
+                  <p class="text-[10px] text-slate-500">Ubah proporsi pembagian persentase di bawah ini (Wajib Akumulasi 100%)</p>
+                </div>
+              </div>
+              
+              <div class="p-5">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                  <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Jasa Transaksi (%)</span>
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="pctBelanja" value="40" min="0" max="100" oninput="validatePct(); recalcAll(); markUnsaved()" class="w-16 h-8 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-center text-xs text-white outline-none">
+                      <span class="text-xs font-bold text-slate-400">%</span>
+                    </div>
+                  </div>
+                  <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Jasa Simpanan (%)</span>
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="pctSimpanan" value="20" min="0" max="100" oninput="validatePct(); recalcAll(); markUnsaved()" class="w-16 h-8 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-center text-xs text-white outline-none">
+                      <span class="text-xs font-bold text-slate-400">%</span>
+                    </div>
+                  </div>
+                  <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Dana Cadangan (%)</span>
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="pctCadangan" value="25" min="0" max="100" oninput="validatePct(); recalcAll(); markUnsaved()" class="w-16 h-8 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-center text-xs text-white outline-none">
+                      <span class="text-xs font-bold text-slate-400">%</span>
+                    </div>
+                  </div>
+                  <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Beban Pengurus (%)</span>
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="pctOps" value="15" min="0" max="100" oninput="validatePct(); recalcAll(); markUnsaved()" class="w-16 h-8 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-center text-xs text-white outline-none">
+                      <span class="text-xs font-bold text-slate-400">%</span>
+                    </div>
+                  </div>
+                </div>
+                <div id="pctWarning" class="hidden p-3 bg-accent-rose/10 border border-accent-rose/20 text-accent-rose text-xs font-bold rounded-xl text-center">
+                  ⚠️ Akumulasi harus genap 100%! Proporsi Anda Saat Ini: <span id="pctTotal">100</span>%
+                </div>
+              </div>
+
+              <!-- SHU CALCULATION TABLE -->
+              <div class="p-4 pt-0">
+                <h4 class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-3">💰 Tabel Perolehan Dividen SHU per Anggota</h4>
+                <div class="overflow-x-auto rounded-xl border border-obsidian-border">
+                  <table class="w-full text-left border-collapse min-w-[900px]">
+                    <thead>
+                      <tr class="bg-slate-950/50 border-b border-obsidian-border">
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-500 w-12 text-center">No</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400">Nama Lengkap Anggota</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-28">Vol. Belanja</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-28">Tot. Simpanan</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-20">Poin ⭐</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-32">SHU Jasa Belanja</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-32">SHU Jasa Modal</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-right w-36">Total Diterima</th>
+                        <th class="py-3 px-4 text-[9px] font-bold uppercase tracking-wider text-slate-400 text-center w-24">Rasio (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="bSHU" class="divide-y divide-obsidian-border text-xs"></tbody>
+                    <tfoot>
+                      <tr class="bg-slate-950/30">
+                        <td colspan="2" class="py-3.5 px-4 text-right text-[10px] font-extrabold text-slate-400">GRAND TOTAL DISTRIBUSI</td>
+                        <td class="py-3.5 px-4 text-right font-bold text-slate-400" id="totSHUBelanja2">Rp 0</td>
+                        <td class="py-3.5 px-4 text-right font-bold text-slate-400" id="totSHUSimpanan2">Rp 0</td>
+                        <td></td>
+                        <td class="py-3.5 px-4 text-right font-bold text-accent-emerald" id="totSHUJasaBelanja">Rp 0</td>
+                        <td class="py-3.5 px-4 text-right font-bold text-accent-emerald" id="totSHUJasaSimpanan">Rp 0</td>
+                        <td class="py-3.5 px-4 text-right font-extrabold text-accent-indigo text-xs" id="totSHUDiterima">Rp 0</td>
+                        <td class="text-center font-extrabold text-slate-400 text-xs">100%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- EXPORT ACTIONS FLOATING BAR -->
+      <div class="absolute bottom-20 left-4 right-4 bg-obsidian-card/90 backdrop-blur-md border border-obsidian-border px-4 py-3 rounded-2xl flex items-center justify-between gap-4 shadow-2xl z-40">
+        <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">EKSPOR:</span>
+        <div class="flex items-center gap-2 flex-1 justify-end">
+          <button onclick="exportPDF()" class="px-3.5 py-1.5 bg-accent-rose/10 hover:bg-accent-rose/20 text-accent-rose font-bold text-xs rounded-lg active:scale-95 transition-all">📄 PDF</button>
+          <button onclick="exportExcel()" class="px-3.5 py-1.5 bg-accent-emerald/10 hover:bg-accent-emerald/20 text-accent-emerald font-bold text-xs rounded-lg active:scale-95 transition-all">📊 Excel</button>
+          <button onclick="exportWord()" class="px-3.5 py-1.5 bg-accent-indigo/10 hover:bg-accent-indigo/20 text-accent-indigo font-bold text-xs rounded-lg active:scale-95 transition-all">📝 Word</button>
+        </div>
+      </div>
+
+      <!-- Dynamic notification popups -->
+      <div id="toast" class="absolute bottom-36 left-4 right-4 p-3 bg-slate-950 border border-slate-800 text-slate-200 text-xs font-bold text-center rounded-xl pointer-events-none opacity-0 translate-y-2 transition-all duration-300 z-50 shadow-2xl"></div>
+
+      <!-- RESPONSIVE NAV DOCK (melayang) -->
+      <div class="absolute bottom-4 left-4 right-4 h-14 bg-obsidian-card/75 backdrop-blur-xl border border-obsidian-border rounded-2xl flex items-center justify-around px-2 z-40 shadow-2xl">
+        <button onclick="showPage('pgKeu', this)" class="nav-tab active flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90">
+          <span class="text-sm">📊</span><span class="text-[8px] font-bold uppercase tracking-wider">Kas</span>
+        </button>
+        <button onclick="showPage('pgSimpWajib', this)" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90">
+          <span class="text-sm">💳</span><span class="text-[8px] font-bold uppercase tracking-wider">Setor</span>
+        </button>
+        <button onclick="showPage('pgProduk', this)" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90">
+          <span class="text-sm">🛍️</span><span class="text-[8px] font-bold uppercase tracking-wider">Stok</span>
+        </button>
+        <button onclick="showPage('pgJual', this)" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90">
+          <span class="text-sm">🧾</span><span class="text-[8px] font-bold uppercase tracking-wider">Kasir</span>
+        </button>
+        <button onclick="showPage('pgPoin', this)" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90">
+          <span class="text-sm">⭐</span><span class="text-[8px] font-bold uppercase tracking-wider">Poin</span>
+        </button>
+        <button onclick="showPage('pgLR', this)" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90">
+          <span class="text-sm">📋</span><span class="text-[8px] font-bold uppercase tracking-wider">L/R</span>
+        </button>
+        <button onclick="showPage('pgSHU', this)" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90">
+          <span class="text-sm">💰</span><span class="text-[8px] font-bold uppercase tracking-wider">SHU</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- RESET DANGER DIALOG MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300" id="modalReset">
+  <div class="modal-box w-full max-w-sm bg-obsidian-card border border-obsidian-border rounded-3xl p-6 shadow-2xl scale-95 transition-transform duration-300">
+    <div class="text-center">
+      <div class="w-12 h-12 rounded-full bg-accent-rose/10 flex items-center justify-center text-accent-rose mx-auto mb-4 text-2xl">⚠️</div>
+      <h3 class="text-lg font-extrabold font-display text-white mb-2">Reset Database Koperasi?</h3>
+      <p class="text-xs text-slate-400 mb-6 leading-relaxed">Seluruh kas masuk, keluar, riwayat simpanan wajib bulanan, data barang inventaris, & transaksi kasir akan dihapus dari penyimpanan peramban lokal secara permanen.</p>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="hideResetModal()" class="flex-1 py-3 bg-slate-800 text-slate-200 text-xs font-bold rounded-xl active:scale-95 transition-all">Kembali</button>
+      <button onclick="resetAllData()" class="flex-1 py-3 bg-accent-rose text-white text-xs font-bold rounded-xl active:scale-95 transition-all">Ya, Hapus Semua</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════
+   CAPACITOR + FIREBASE INTEGRATION
+══════════════════════════════════════ */
+const isAndroid = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+
+// ===== FIREBASE CONFIG =====
+const firebaseConfig = {
+  apiKey: "AIzaSyCxMlGgNlzG0phM_658VSZnbr8V7zy1WY0",
+  authDomain: "simkop-7c36c.firebaseapp.com",
+  databaseURL: "https://simkop-7c36c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "simkop-7c36c",
+  storageBucket: "simkop-7c36c.firebasestorage.app",
+  messagingSenderId: "64233225156",
+  appId: "1:64233225156:web:71d2b2be2ad4af49b98291",
+  measurementId: "G-MFMEG6DCMZ"
+};
+
+// ===== INISIALISASI FIREBASE =====
+if (typeof firebase !== 'undefined') {
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  
+  // ===== OVERRIDE SAVEALL =====
+  const originalSaveAll = window.saveAll;
+  window.saveAll = async function(manual = false) {
+    if (typeof originalSaveAll === 'function') {
+      originalSaveAll(manual);
+    }
+    try {
+      const data = collectAllData();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const syncRef = database.ref('simkop_data');
+      await syncRef.set(data);
+      
+      // Update status
+      const saveTxt = document.getElementById('saveTxt');
+      if (saveTxt) {
+        saveTxt.textContent = 'Tersimpan & Tersinkronisasi';
+      }
+      triggerIsland('💾 Data Tersimpan!');
+    } catch (err) {
+      console.error('Firebase sync error:', err);
+      showToast('⚠️ Gagal sinkronisasi ke Firebase');
+    }
+  };
+  
+  // ===== REAL-TIME LISTENER =====
+  const syncRef = database.ref('simkop_data');
+  syncRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      loadAllData();
+      recalcAll();
+      // Tampilkan notifikasi
+      const saveTxt = document.getElementById('saveTxt');
+      if (saveTxt) {
+        saveTxt.textContent = '🔄 Data tersinkronisasi dari server';
+      }
+      showToast('🔄 Data terbaru dari server');
+      triggerIsland('🔄 Sync Real-Time');
+    }
+  });
+}
+
+/* ══════════════════════════════════════
+   SIMULATOR INTEGRATIONS & REAL-TIME CLOCK
+══════════════════════════════════════ */
+function updateSimulatorTime() {
+  const timeEl = document.getElementById('statusBarTime');
+  if (timeEl) {
+    const now = new Date();
+    timeEl.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+setInterval(updateSimulatorTime, 1000);
+updateSimulatorTime();
+
+function triggerIsland(message) {
+  const island = document.getElementById('dynamicIsland');
+  const text = document.getElementById('islandText');
+  if (island && text) {
+    text.textContent = message;
+    island.className = "w-[240px] h-[36px] bg-black rounded-full flex items-center justify-center transition-all duration-500 ease-out shadow-lg shadow-black/50 border border-slate-800";
+    setTimeout(() => { text.className = "text-[10px] text-accent-emerald font-bold opacity-100 transition-opacity duration-200"; }, 150);
+    setTimeout(() => {
+      text.className = "text-[10px] text-accent-emerald font-bold opacity-0 transition-opacity duration-200";
+      setTimeout(() => {
+        island.className = "w-[120px] h-[32px] bg-black rounded-full flex items-center justify-center transition-all duration-500 ease-out shadow-lg shadow-black/50";
+      }, 150);
+    }, 2800);
+  }
+}
+
+function toggleMeta() {
+  const meta = document.getElementById('kopMetaCollapse');
+  meta.classList.toggle('hidden');
+  meta.classList.toggle('flex');
+}
+
+/* ══════════════════════════════════════
+   STREAMING_CHUNK: Setting up PWA Database engine...
+══════════════════════════════════════ */
+const STORAGE_KEY = 'simkop_v2';
+let autoSaveTimer = null;
+let unsavedChanges = false;
+
+function markUnsaved(){
+  unsavedChanges = true;
+  const dot = document.getElementById('saveDot');
+  const txt = document.getElementById('saveTxt');
+  dot.className = 'w-2.5 h-2.5 rounded-full bg-accent-amber animate-neon-pulse';
+  txt.textContent = 'Ada Perubahan...';
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => saveAll(false), 1500);
+}
+
+function saveAll(manual = false){
+  try {
+    const data = collectAllData();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    unsavedChanges = false;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const dateStr = now.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
+    document.getElementById('saveDot').className = 'w-2.5 h-2.5 rounded-full bg-accent-emerald animate-neon-pulse';
+    document.getElementById('saveTxt').textContent = 'Sinkron Perangkat';
+    document.getElementById('saveTime').textContent = `${dateStr} ${timeStr}`;
+    if(manual) {
+      showToast('✅ Data tersimpan dalam cache!');
+      triggerIsland('💾 Data Terpelihara');
+    } else {
+      triggerIsland('🔄 Auto-save Aktif');
+    }
+  } catch(e){
+    document.getElementById('saveDot').className = 'w-2.5 h-2.5 rounded-full bg-accent-rose animate-neon-pulse';
+    document.getElementById('saveTxt').textContent = '⚠️ Gagal Sinkron';
+    showToast('⚠️ Gagal memelihara penyimpanan!');
+  }
+}
+
+function collectAllData(){
+  const tables = ['bAnggota','bMasuk','bKeluar','bInv','bProduk','bJual'];
+  const tblData = {};
+  tables.forEach(id => {
+    tblData[id] = [];
+    document.querySelectorAll('#'+id+' tr').forEach(tr => {
+      const row = [];
+      tr.querySelectorAll('input,select').forEach(el => row.push(el.value));
+      tblData[id].push(row);
+    });
+  });
+  return {
+    meta: {
+      namaKop: document.getElementById('namaKop').value,
+      periode: document.getElementById('periode').value,
+      noBH: document.getElementById('noBH').value,
+      alamat: document.getElementById('alamat').value,
+      ttdKetua: document.getElementById('ttdKetua').value,
+      ttdSekretaris: document.getElementById('ttdSekretaris').value,
+      ttdBendahara: document.getElementById('ttdBendahara').value,
+    },
+    shu: {
+      pctBelanja: document.getElementById('pctBelanja').value,
+      pctSimpanan: document.getElementById('pctSimpanan').value,
+      pctCadangan: document.getElementById('pctCadangan').value,
+      pctOps: document.getElementById('pctOps').value,
+    },
+    tables: tblData,
+    simpananWajib: window.simpananWajib || {},
+    swLog: window.swLog || [],
+    savedAt: new Date().toISOString()
+  };
+}
+
+function loadAllData(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    const data = JSON.parse(raw);
+
+    if(data.meta){
+      const m = data.meta;
+      if(m.namaKop){ document.getElementById('namaKop').value = m.namaKop; document.getElementById('namaKopDisplay').textContent = m.namaKop; }
+      if(m.periode) document.getElementById('periode').value = m.periode;
+      if(m.noBH) document.getElementById('noBH').value = m.noBH;
+      if(m.alamat) document.getElementById('alamat').value = m.alamat;
+      if(m.ttdKetua) document.getElementById('ttdKetua').value = m.ttdKetua;
+      if(m.ttdSekretaris) document.getElementById('ttdSekretaris').value = m.ttdSekretaris;
+      if(m.ttdBendahara) document.getElementById('ttdBendahara').value = m.ttdBendahara;
+    }
+
+    if(data.shu){
+      document.getElementById('pctBelanja').value = data.shu.pctBelanja || 40;
+      document.getElementById('pctSimpanan').value = data.shu.pctSimpanan || 20;
+      document.getElementById('pctCadangan').value = data.shu.pctCadangan || 25;
+      document.getElementById('pctOps').value = data.shu.pctOps || 15;
+    }
+
+    if(data.tables){
+      // Hapus semua data yang ada sebelum memuat data baru
+      const t = data.tables;
+      if(t.bAnggota) {
+        document.getElementById('bAnggota').innerHTML = '';
+        t.bAnggota.forEach(r => addAnggota(...r));
+      }
+      if(t.bMasuk) {
+        document.getElementById('bMasuk').innerHTML = '';
+        t.bMasuk.forEach(r => addMasuk(...r));
+      }
+      if(t.bKeluar) {
+        document.getElementById('bKeluar').innerHTML = '';
+        t.bKeluar.forEach(r => addKeluar(...r));
+      }
+      if(t.bInv) {
+        document.getElementById('bInv').innerHTML = '';
+        t.bInv.forEach(r => addInv(...r));
+      }
+      if(t.bProduk) {
+        document.getElementById('bProduk').innerHTML = '';
+        t.bProduk.forEach(r => addProduk(...r));
+      }
+      if(t.bJual) {
+        document.getElementById('bJual').innerHTML = '';
+        t.bJual.forEach(r => addJual(...r));
+      }
+    }
+
+    window.simpananWajib = data.simpananWajib || {};
+    window.swLog = data.swLog || [];
+    window.swSelected = {};
+
+    if(data.savedAt){
+      const d = new Date(data.savedAt);
+      const timeStr = d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const dateStr = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+      document.getElementById('saveTime').textContent = `${dateStr} ${timeStr}`;
+    }
+    return true;
+  } catch(e){
+    console.error('Load error:', e);
+    return false;
+  }
+}
+
+function showResetModal(){
+  const modal = document.getElementById('modalReset');
+  modal.className = "modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-100 pointer-events-all transition-opacity duration-300";
+  modal.querySelector('.modal-box').className = "modal-box w-full max-w-sm bg-obsidian-card border border-obsidian-border rounded-3xl p-6 shadow-2xl scale-100 transition-transform duration-300";
+}
+function hideResetModal(){
+  const modal = document.getElementById('modalReset');
+  modal.className = "modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300";
+  modal.querySelector('.modal-box').className = "modal-box w-full max-w-sm bg-obsidian-card border border-obsidian-border rounded-3xl p-6 shadow-2xl scale-95 transition-transform duration-300";
+}
+function resetAllData(){
+  localStorage.removeItem(STORAGE_KEY);
+  hideResetModal();
+  showToast('🗑️ Database dikosongkan...');
+  triggerIsland('🧹 Selesai Reset');
+  setTimeout(() => location.reload(), 1000);
+}
+
+/* ══════════════════════════════════════
+   STREAMING_CHUNK: Integrating chart components and currency handlers...
+══════════════════════════════════════ */
+const fmt    = n => 'Rp '+(isNaN(n)||n===''?0:Math.round(Number(n))).toLocaleString('id-ID');
+const fmtPct = n => (isNaN(n)?'0.00':Number(n).toFixed(2))+'%';
+const parse  = v => parseFloat((v||'0').toString().replace(/[^\d]/g,''))||0;
+const parseF = v => parseFloat((v||'0').toString().replace(/[^\d.]/g,''))||0;
+
+function showToast(msg,ms=2600){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className = "absolute bottom-36 left-4 right-4 p-3 bg-slate-950 border border-slate-800 text-slate-200 text-xs font-bold text-center rounded-xl pointer-events-none opacity-100 translate-y-0 transition-all duration-300 z-50 shadow-2xl";
+  setTimeout(()=> {
+    t.className = "absolute bottom-36 left-4 right-4 p-3 bg-slate-950 border border-slate-800 text-slate-200 text-xs font-bold text-center rounded-xl pointer-events-none opacity-0 translate-y-2 transition-all duration-300 z-50 shadow-2xl";
+  }, ms);
+}
+function getMeta(){return{nama:document.getElementById('namaKopDisplay').textContent,periode:document.getElementById('periode').value,bh:document.getElementById('noBH').value,alamat:document.getElementById('alamat').value};}
+function currencyInput(e){const el=e.target,raw=el.value.replace(/[^\d]/g,'');el.value=raw?Number(raw).toLocaleString('id-ID'):'';markUnsaved();recalcAll();}
+function delRow(btn){btn.closest('tr').remove();markUnsaved();recalcAll();}
+function renum(id){document.querySelectorAll('#'+id+' tr').forEach((tr,i)=>{const s=tr.querySelector('.rno');if(s)s.textContent=i+1;});}
+
+/* ══════════════════════════════════════
+   CHART SYSTEM
+══════════════════════════════════════ */
+function updateDynamicChart(masuk, keluar) {
+  const container = document.getElementById('chartBars');
+  if(!container) return;
+  const max = Math.max(masuk, keluar, 1000000);
+  const scale = 70; // Max height in SVG grid
+  const masukHeight = (masuk / max) * scale;
+  const keluarHeight = (keluar / max) * scale;
+  
+  container.innerHTML = `
+    <!-- Masuk Bar -->
+    <rect x="70" y="${90 - masukHeight}" width="40" height="${masukHeight}" fill="url(#gradEmerald)" rx="4"/>
+    <text x="90" y="${85 - masukHeight}" fill="#10b981" font-size="7" font-weight="bold" text-anchor="middle">${(masuk/1000).toFixed(0)}k</text>
+    <text x="90" y="98" fill="#94a3b8" font-size="6" text-anchor="middle">PEMASUKAN</text>
+
+    <!-- Keluar Bar -->
+    <rect x="180" y="${90 - keluarHeight}" width="40" height="${keluarHeight}" fill="url(#gradRose)" rx="4"/>
+    <text x="200" y="${85 - keluarHeight}" fill="#f43f5e" font-size="7" font-weight="bold" text-anchor="middle">${(keluar/1000).toFixed(0)}k</text>
+    <text x="200" y="98" fill="#94a3b8" font-size="6" text-anchor="middle">PENGELUARAN</text>
+
+    <!-- Gradients -->
+    <defs>
+      <linearGradient id="gradEmerald" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#10b981"/>
+        <stop offset="100%" stop-color="#047857"/>
+      </linearGradient>
+      <linearGradient id="gradRose" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f43f5e"/>
+        <stop offset="100%" stop-color="#be123c"/>
+      </linearGradient>
+    </defs>
+  `;
+}
+
+/* ══════════════════════════════════════
+   NAVIGATION SYSTEM
+══════════════════════════════════════ */
+function showPage(id, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  document.querySelectorAll('.nav-tab').forEach(b=> {
+    b.className = "nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all w-12 h-11 rounded-xl active:scale-90";
+  });
+  
+  document.getElementById(id).classList.remove('hidden');
+  document.getElementById(id).className = "page page-active";
+  btn.className = "nav-tab active flex flex-col items-center justify-center gap-1 text-accent-indigo transition-all w-12 h-11 rounded-xl active:scale-90 bg-accent-indigo/10 glow-indigo";
+  
+  document.getElementById('appScrollContainer').scrollTop = 0;
+  recalcAll();
+  
+  if(id==='pgSimpWajib'){
+    initSwFilter();
+    renderSimpananWajib();
+  }
+}
+
+/* ══════════════════════════════════════
+   POIN LOYALTY TIERS
+══════════════════════════════════════ */
+function hitungPoin(s){if(s>=40001)return 12;if(s>=30001)return 7;if(s>=20000)return 5;return 0;}
+function poinBadge(p){
+  if(p===12)return`<span class="px-2.5 py-0.5 bg-accent-violet/15 text-accent-violet border border-accent-violet/30 rounded-full text-[9px] font-bold">⭐ ${p}</span>`;
+  if(p===7)return`<span class="px-2.5 py-0.5 bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/30 rounded-full text-[9px] font-bold">⭐ ${p}</span>`;
+  if(p===5)return`<span class="px-2.5 py-0.5 bg-accent-amber/15 text-accent-amber border border-accent-amber/30 rounded-full text-[9px] font-bold">⭐ ${p}</span>`;
+  return`<span class="text-slate-600 text-[10px]">—</span>`;
+}
+
+/* ══════════════════════════════════════
+   STREAMING_CHUNK: Processing financial math engines and total calculations...
+══════════════════════════════════════ */
+function recalcKeu(){
+  let totP=0,totW=0,cnt=0;
+  document.querySelectorAll('#bAnggota tr').forEach(tr=>{totP+=parse(tr.querySelector('.inp-pokok')?.value);totW+=parse(tr.querySelector('.inp-wajib')?.value);if(tr.querySelector('.inp-nama')?.value?.trim())cnt++;});
+  document.getElementById('totPokok').textContent=fmt(totP);
+  document.getElementById('totWajib').textContent=fmt(totW);
+  document.getElementById('sumAnggota').textContent=cnt+' Orang';
+  
+  let totM=0;
+  document.querySelectorAll('#bMasuk tr').forEach(tr=>{totM+=parse(tr.querySelector('.inp-jml')?.value);});
+  document.getElementById('totMasuk').textContent=fmt(totM);
+  
+  let totK=0;
+  document.querySelectorAll('#bKeluar tr').forEach(tr=>{totK+=parse(tr.querySelector('.inp-jml')?.value);});
+  document.getElementById('totKeluar').textContent=fmt(totK);
+  
+  let tHP=0,tNS=0;
+  document.querySelectorAll('#bInv tr').forEach(tr=>{tHP+=parse(tr.querySelector('.inp-hp')?.value);tNS+=parse(tr.querySelector('.inp-ns')?.value);});
+  document.getElementById('totHP').textContent=fmt(tHP);
+  document.getElementById('totNS').textContent=fmt(tNS);
+  
+  const totalMasuk=totM+totP+totW;
+  document.getElementById('sumMasuk').textContent=fmt(totalMasuk);
+  document.getElementById('sumKeluar').textContent=fmt(totK);
+  
+  const saldo=totalMasuk-totK;
+  const es=document.getElementById('sumSaldo');
+  es.textContent=fmt(saldo);
+  es.className = 'text-lg font-extrabold font-display '+(saldo>=0?'text-accent-emerald':'text-accent-rose');
+  
+  renum('bAnggota');renum('bMasuk');renum('bKeluar');renum('bInv');
+  updateDynamicChart(totalMasuk, totK);
+}
+
+function recalcProduk(){
+  let tq=0,tHP=0,tJual=0,tStok=0,cnt=0;
+  document.querySelectorAll('#bProduk tr').forEach(tr=>{
+    const stok=parseF(tr.querySelector('.inp-stok')?.value)||0;
+    const hpp=parse(tr.querySelector('.inp-hpp')?.value)||0;
+    const hj=parse(tr.querySelector('.inp-hj')?.value)||0;
+    const ns=stok*hpp,mg=hpp>0?((hj-hpp)/hpp*100):0;
+    const em=tr.querySelector('.cell-mg');if(em)em.textContent=fmtPct(mg);
+    const ev=tr.querySelector('.cell-sv');if(ev)ev.textContent=fmt(ns);
+    tq+=stok;tHP+=hpp;tJual+=hj;tStok+=ns;
+    if(tr.querySelector('.inp-pnama')?.value?.trim())cnt++;
+  });
+  document.getElementById('sumProduk').textContent=cnt;
+  document.getElementById('sumStokHPP').textContent=fmt(tStok);
+  document.getElementById('sumStokJual').textContent=fmt(tJual);
+  document.getElementById('totStokQty').textContent=tq;
+  document.getElementById('totProdukHPP').textContent=fmt(tHP);
+  document.getElementById('totProdukJual').textContent=fmt(tJual);
+  document.getElementById('totProdukStok').textContent=fmt(tStok);
+  renum('bProduk');
+}
+
+function recalcJual(){
+  let totSub=0,totHPP=0,totLaba=0,totPoin=0,cntTx=0;
+  document.querySelectorAll('#bJual tr').forEach(tr=>{
+    const qty=parseF(tr.querySelector('.inp-qty')?.value)||0;
+    const hj=parse(tr.querySelector('.inp-hjt')?.value)||0;
+    const hpp=parse(tr.querySelector('.inp-hppt')?.value)||0;
+    const sub=qty*hj,hppT=qty*hpp,laba=sub-hppT,poin=hitungPoin(sub);
+    const es=tr.querySelector('.cell-sub');if(es)es.textContent=fmt(sub);
+    const eh=tr.querySelector('.cell-hppt');if(eh)eh.textContent=fmt(hppT);
+    const el=tr.querySelector('.cell-laba');if(el){
+      el.textContent=fmt(laba);
+      el.className='font-bold '+(laba>=0?'text-accent-emerald':'text-accent-rose');
+    }
+    const ep=tr.querySelector('.cell-poin');if(ep)ep.innerHTML=poinBadge(poin);
+    totSub+=sub;totHPP+=hppT;totLaba+=laba;totPoin+=poin;
+    if(tr.querySelector('.inp-ptx')?.value?.trim())cntTx++;
+  });
+  document.getElementById('totSubtotal').textContent=fmt(totSub);
+  document.getElementById('totHPPTot').textContent=fmt(totHPP);
+  document.getElementById('totLabaTot').textContent=fmt(totLaba);
+  document.getElementById('totPoinTot').textContent=totPoin+' ⭐';
+  document.getElementById('sumPend').textContent=fmt(totSub);
+  document.getElementById('sumHPPJual').textContent=fmt(totHPP);
+  document.getElementById('sumLabaKotor').textContent=fmt(totLaba);
+  document.getElementById('sumTx').textContent=cntTx+' Faktur';
+  const mg=totSub>0?(totLaba/totSub*100):0;
+  document.getElementById('sumMargin').textContent=fmtPct(mg);
+  renum('bJual');
+}
+
+function recalcPoin(){
+  const map={};
+  document.querySelectorAll('#bJual tr').forEach(tr=>{
+    const nama=tr.querySelector('.inp-pembeli')?.value?.trim();
+    const qty=parseF(tr.querySelector('.inp-qty')?.value)||0;
+    const hj=parse(tr.querySelector('.inp-hjt')?.value)||0;
+    const sub=qty*hj,poin=hitungPoin(sub);
+    if(!nama)return;
+    if(!map[nama])map[nama]={tx:0,belanja:0,poin:0};
+    map[nama].tx++;map[nama].belanja+=sub;map[nama].poin+=poin;
+  });
+  const bPoin=document.getElementById('bPoin');bPoin.innerHTML='';
+  let totPoin=0,cntA=0,cntTxP=0;
+  Object.entries(map).sort((a,b)=>b[1].poin-a[1].poin).forEach(([nama,d],i)=>{
+    let tier='';
+    if(d.poin>=50)tier='<span class="px-2 py-0.5 bg-accent-violet/15 text-accent-violet border border-accent-violet/20 rounded-lg text-[9px] font-extrabold uppercase">💜 Platinum</span>';
+    else if(d.poin>=20)tier='<span class="px-2 py-0.5 bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/20 rounded-lg text-[9px] font-extrabold uppercase">💚 Gold</span>';
+    else if(d.poin>=5)tier='<span class="px-2 py-0.5 bg-accent-amber/15 text-accent-amber border border-accent-amber/20 rounded-lg text-[9px] font-extrabold uppercase">🥉 Silver</span>';
+    else tier='<span class="px-2 py-0.5 bg-slate-800 text-slate-400 border border-slate-700 rounded-lg text-[9px] font-extrabold uppercase">— Bronze</span>';
+    const avg=d.tx>0?d.belanja/d.tx:0;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="py-2.5 px-3 text-center text-slate-500 font-bold">${i+1}</td><td class="py-2.5 px-3 font-bold text-white">${nama}</td><td class="py-2.5 px-3 text-center">${d.tx}</td><td class="py-2.5 px-3 text-right font-semibold text-accent-indigo">${fmt(d.belanja)}</td><td class="py-2.5 px-3 text-center font-bold text-accent-violet">${d.poin} ⭐</td><td class="py-2.5 px-3">${tier}</td><td class="py-2.5 px-3 text-right font-semibold text-slate-400">${fmt(avg)}</td>`;
+    bPoin.appendChild(tr);
+    totPoin+=d.poin;cntA++;cntTxP+=d.tx;
+  });
+  document.getElementById('sumTotPoin').textContent=totPoin+' ⭐';
+  document.getElementById('sumAnggotaBelanja').textContent=cntA+' Orang';
+  document.getElementById('sumTxPoin').textContent=cntTxP+' Tx';
+  document.getElementById('sumRataPoin').textContent=(cntA>0?(totPoin/cntA).toFixed(1):0)+' ⭐';
+}
+
+function recalcLR(){
+  let totMasuk=0;
+  document.querySelectorAll('#bMasuk tr').forEach(tr=>{totMasuk+=parse(tr.querySelector('.inp-jml')?.value);});
+  let totPokok=0,totWajib=0;
+  document.querySelectorAll('#bAnggota tr').forEach(tr=>{totPokok+=parse(tr.querySelector('.inp-pokok')?.value);totWajib+=parse(tr.querySelector('.inp-wajib')?.value);});
+  let totSub=0;
+  document.querySelectorAll('#bJual tr').forEach(tr=>{const q=parseF(tr.querySelector('.inp-qty')?.value)||0;const h=parse(tr.querySelector('.inp-hjt')?.value)||0;totSub+=q*h;});
+  let totHPPJual=0;
+  document.querySelectorAll('#bJual tr').forEach(tr=>{const q=parseF(tr.querySelector('.inp-qty')?.value)||0;const h=parse(tr.querySelector('.inp-hppt')?.value)||0;totHPPJual+=q*h;});
+  let totKeluar=0;
+  document.querySelectorAll('#bKeluar tr').forEach(tr=>{totKeluar+=parse(tr.querySelector('.inp-jml')?.value);});
+  
+  const pendapatanUsaha=totSub,pendapatanLain=totMasuk+totPokok+totWajib;
+  const totalPendapatan=pendapatanUsaha+pendapatanLain;
+  const labaKotor=pendapatanUsaha-totHPPJual;
+  const labaBersih=labaKotor+pendapatanLain-totKeluar;
+  const marginBersih=totalPendapatan>0?(labaBersih/totalPendapatan*100):0;
+  
+  document.getElementById('lrSumPend').textContent=fmt(totalPendapatan);
+  document.getElementById('lrSumBeban').textContent=fmt(totHPPJual+totKeluar);
+  const eb=document.getElementById('lrSumBersih');eb.textContent=fmt(labaBersih);
+  eb.className = 'text-sm font-extrabold '+(labaBersih>=0?'text-accent-indigo':'text-accent-rose');
+  document.getElementById('lrMargin').textContent=fmtPct(marginBersih);
+  
+  document.getElementById('lrBody').innerHTML=`
+    <div class="flex justify-between items-center px-4 py-2 bg-slate-950/40 rounded-lg text-[10px] font-bold text-slate-500 tracking-wider">A. ALIRAN REKENING MASUK</div>
+    <div class="flex justify-between items-center px-4 py-2 pl-6"><span class="text-xs">Omset Penjualan Kasir</span><span class="text-xs font-semibold text-accent-emerald">+${fmt(pendapatanUsaha)}</span></div>
+    <div class="flex justify-between items-center px-4 py-2 pl-6"><span class="text-xs">Simpanan Pokok Anggota</span><span class="text-xs font-semibold text-accent-emerald">+${fmt(totPokok)}</span></div>
+    <div class="flex justify-between items-center px-4 py-2 pl-6"><span class="text-xs">Simpanan Wajib Anggota</span><span class="text-xs font-semibold text-accent-emerald">+${fmt(totWajib)}</span></div>
+    <div class="flex justify-between items-center px-4 py-2 pl-6"><span class="text-xs">Pendapatan Hibah & Lain</span><span class="text-xs font-semibold text-accent-emerald">+${fmt(totMasuk)}</span></div>
+    <div class="flex justify-between items-center px-4 py-2.5 bg-slate-950/20 font-bold border-t border-slate-800"><span class="text-xs">Total Omset Bruto</span><span class="text-xs text-accent-emerald">${fmt(totalPendapatan)}</span></div>
+    
+    <div class="h-2"></div>
+    <div class="flex justify-between items-center px-4 py-2 bg-slate-950/40 rounded-lg text-[10px] font-bold text-slate-500 tracking-wider">B. HARGA POKOK PENJUALAN (HPP)</div>
+    <div class="flex justify-between items-center px-4 py-2 pl-6"><span class="text-xs">HPP Komoditas Terjual</span><span class="text-xs font-semibold text-accent-rose">-${fmt(totHPPJual)}</span></div>
+    <div class="flex justify-between items-center px-4 py-2.5 bg-slate-950/20 font-bold border-t border-slate-800"><span class="text-xs">Hasil Kotor Penjualan</span><span class="text-xs ${labaKotor>=0?'text-accent-emerald':'text-accent-rose'}">${fmt(labaKotor)}</span></div>
+    
+    <div class="h-2"></div>
+    <div class="flex justify-between items-center px-4 py-2 bg-slate-950/40 rounded-lg text-[10px] font-bold text-slate-500 tracking-wider">C. OPERASIONAL & BEBAN USAHA</div>
+    <div class="flex justify-between items-center px-4 py-2 pl-6"><span class="text-xs">Total Pengeluaran Kas</span><span class="text-xs font-semibold text-accent-rose">-${fmt(totKeluar)}</span></div>
+    
+    <div class="h-3"></div>
+    <div class="flex justify-between items-center p-4 bg-gradient-to-r from-accent-indigo/10 to-accent-violet/10 border border-accent-indigo/20 rounded-xl font-extrabold"><span class="text-xs text-slate-200">💰 SHU BERSIH (LABA NETTO)</span><span class="text-sm text-white">${fmt(labaBersih)}</span></div>
+    <div class="flex justify-between items-center px-4 py-2 bg-slate-950/10 rounded-lg mt-2 text-[10px]"><span class="text-slate-400">Rasio Margin Bersih</span><span class="font-bold text-accent-emerald">${fmtPct(marginBersih)}</span></div>`;
+  window._labaBersih=labaBersih;
+}
+
+function recalcSHU(){
+  const labaBersih=window._labaBersih||0;
+  const pB=(parseFloat(document.getElementById('pctBelanja').value)||0)/100;
+  const pS=(parseFloat(document.getElementById('pctSimpanan').value)||0)/100;
+  const pC=(parseFloat(document.getElementById('pctCadangan').value)||0)/100;
+  const pO=(parseFloat(document.getElementById('pctOps').value)||0)/100;
+  
+  const shuBelanja=labaBersih*pB,shuSimpanan=labaBersih*pS;
+  document.getElementById('shuBruto').textContent=fmt(labaBersih);
+  document.getElementById('shuAnggota').textContent=fmt(shuBelanja+shuSimpanan);
+  document.getElementById('shuCadangan').textContent=fmt(labaBersih*pC);
+  document.getElementById('shuOps').textContent=fmt(labaBersih*pO);
+  
+  const mapBelanja={};let totBelanjaAll=0;
+  document.querySelectorAll('#bJual tr').forEach(tr=>{
+    const nama=tr.querySelector('.inp-pembeli')?.value?.trim();
+    const qty=parseF(tr.querySelector('.inp-qty')?.value)||0;
+    const hj=parse(tr.querySelector('.inp-hjt')?.value)||0;
+    const sub=qty*hj;
+    if(!nama)return;
+    if(!mapBelanja[nama])mapBelanja[nama]={belanja:0,poin:0};
+    mapBelanja[nama].belanja+=sub;mapBelanja[nama].poin+=hitungPoin(sub);
+    totBelanjaAll+=sub;
+  });
+  
+  const mapSimpanan={};let totSimpananAll=0;
+  document.querySelectorAll('#bAnggota tr').forEach(tr=>{
+    const nama=tr.querySelector('.inp-nama')?.value?.trim();
+    const tot=(parse(tr.querySelector('.inp-pokok')?.value)||0)+(parse(tr.querySelector('.inp-wajib')?.value)||0);
+    if(!nama)return;
+    mapSimpanan[nama]=(mapSimpanan[nama]||0)+tot;
+    totSimpananAll+=tot;
+  });
+  
+  const allNama=new Set([...Object.keys(mapBelanja),...Object.keys(mapSimpanan)]);
+  const tbody=document.getElementById('bSHU');tbody.innerHTML='';
+  let tSHUBelanja=0,tSHUSimpanan=0,tSHUTotal=0,tBelanja2=0,tSimpanan2=0,i=0;
+  
+  [...allNama].sort().forEach(nama=>{
+    const belanja=mapBelanja[nama]?.belanja||0,poin=mapBelanja[nama]?.poin||0;
+    const simpanan=mapSimpanan[nama]||0;
+    const shuJB=shuBelanja*(totBelanjaAll>0?belanja/totBelanjaAll:0);
+    const shuJS=shuSimpanan*(totSimpananAll>0?simpanan/totSimpananAll:0);
+    const shuTot=shuJB+shuJS;
+    const pct=(labaBersih>0?(shuTot/labaBersih*100):0).toFixed(2);
+    tSHUBelanja+=shuJB;tSHUSimpanan+=shuJS;tSHUTotal+=shuTot;tBelanja2+=belanja;tSimpanan2+=simpanan;
+    
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="py-2.5 px-3 text-center text-slate-500 font-bold">${++i}</td><td class="py-2.5 px-3 font-bold text-white">${nama}</td><td class="py-2.5 px-3 text-right text-slate-400 font-semibold">${fmt(belanja)}</td><td class="py-2.5 px-3 text-right text-slate-400 font-semibold">${fmt(simpanan)}</td><td class="py-2.5 px-3 text-center font-bold text-accent-amber">${poin} ⭐</td><td class="py-2.5 px-3 text-right text-accent-emerald font-semibold">${fmt(shuJB)}</td><td class="py-2.5 px-3 text-right text-accent-emerald font-semibold">${fmt(shuJS)}</td><td class="py-2.5 px-3 text-right text-accent-indigo font-extrabold">${fmt(shuTot)}</td><td class="py-2.5 px-3 text-center font-bold text-slate-400">${pct}%</td>`;
+    tbody.appendChild(tr);
+  });
+  
+  document.getElementById('totSHUBelanja2').textContent=fmt(tBelanja2);
+  document.getElementById('totSHUSimpanan2').textContent=fmt(tSimpanan2);
+  document.getElementById('totSHUJasaBelanja').textContent=fmt(tSHUBelanja);
+  document.getElementById('totSHUJasaSimpanan').textContent=fmt(tSHUSimpanan);
+  document.getElementById('totSHUDiterima').textContent=fmt(tSHUTotal);
+}
+
+function recalcAll(){
+  recalcKeu();recalcProduk();recalcJual();recalcPoin();recalcLR();recalcSHU();
+  if(document.getElementById('pgSimpWajib')?.classList.contains('page-active')){renderSimpananWajib();}
+}
+
+/* ══════════════════════════════════════
+   STREAMING_CHUNK: Injecting dynamic card append fields and styles...
+══════════════════════════════════════ */
+const jenisMasuk=['Keuntungan Hasil Usaha','Simpanan Wajib Anggota (Bulanan)','Dana Lain'];
+const katKeluar=['Anggota Keluar','Belanja Usaha','Belanja Inventaris','Operasional'];
+const katProduk=['Makanan & Minuman','Kerajinan Tangan','Pakaian & Tekstil','Pertanian','Jasa','Lainnya'];
+const statusTx=['Lunas','Kredit','Retur'];
+
+// Helper for sleek neobank style inputs
+const sleekInput = (cls, type, placeholder, val, extra='') => `
+  <input class="w-full h-8 px-2 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-xs text-white outline-none transition-all ${cls}" type="${type}" placeholder="${placeholder}" value="${val}" ${extra}>
+`;
+
+function addAnggota(nama='', usaha='', tgl='', pokok='', wajib=''){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td class="py-2 px-3 text-center text-slate-500 font-bold"><span class="rno"></span></td>
+    <td class="py-2 px-3">${sleekInput('inp-nama', 'text', 'Nama...', nama, 'oninput="markUnsaved(); recalcAll()"')}</td>
+    <td class="py-2 px-3">${sleekInput('', 'text', 'Jenis usaha...', usaha, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'date', '', tgl, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-pokok', 'text', '0', pokok, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-wajib', 'text', '0', wajib, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3 text-center"><button class="text-accent-rose bg-accent-rose/10 hover:bg-accent-rose/25 w-7 h-7 rounded-lg active:scale-90 transition-all font-bold" onclick="delRow(this)">×</button></td>
+  `;
+  document.getElementById('bAnggota').appendChild(tr);recalcAll();
+}
+
+function addMasuk(jenis='', ket='', tgl='', jml=''){
+  const tr=document.createElement('tr');
+  const opts=jenisMasuk.map(j=>`<option ${j===jenis?'selected':''}>${j}</option>`).join('');
+  tr.innerHTML=`
+    <td class="py-2 px-3 text-center text-slate-500 font-bold"><span class="rno"></span></td>
+    <td class="py-2 px-3">
+      <select class="w-full h-8 px-2 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-xs text-white outline-none transition-all cursor-pointer" onchange="markUnsaved()">
+        <option value="">-- Pilih --</option>${opts}
+      </select>
+    </td>
+    <td class="py-2 px-3">${sleekInput('inp-ket', 'text', 'Detail...', ket, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'date', '', tgl, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-jml', 'text', '0', jml, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3 text-center"><button class="text-accent-rose bg-accent-rose/10 hover:bg-accent-rose/25 w-7 h-7 rounded-lg active:scale-90 transition-all font-bold" onclick="delRow(this)">×</button></td>
+  `;
+  document.getElementById('bMasuk').appendChild(tr);recalcAll();
+}
+
+function addKeluar(uraian='', kategori='', ket='', tgl='', jml=''){
+  const tr=document.createElement('tr');
+  const opts=katKeluar.map(k=>`<option ${k===kategori?'selected':''}>${k}</option>`).join('');
+  tr.innerHTML=`
+    <td class="py-2 px-3 text-center text-slate-500 font-bold"><span class="rno"></span></td>
+    <td class="py-2 px-3">${sleekInput('', 'text', 'Uraian...', uraian, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">
+      <select class="w-full h-8 px-2 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-xs text-white outline-none transition-all cursor-pointer" onchange="markUnsaved()">
+        <option value="">-- Kategori --</option>${opts}
+      </select>
+    </td>
+    <td class="py-2 px-3">${sleekInput('', 'text', 'Keterangan...', ket, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'date', '', tgl, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-jml', 'text', '0', jml, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3 text-center"><button class="text-accent-rose bg-accent-rose/10 hover:bg-accent-rose/25 w-7 h-7 rounded-lg active:scale-90 transition-all font-bold" onclick="delRow(this)">×</button></td>
+  `;
+  document.getElementById('bKeluar').appendChild(tr);recalcAll();
+}
+
+function addInv(aset='', jml='', sat='', tgl='', hp='', ns='', kondisi='Baik', ket=''){
+  const tr=document.createElement('tr');
+  const kopts=['Baik','Sedang','Rusak'].map(k=>`<option ${k===kondisi?'selected':''}>${k}</option>`).join('');
+  tr.innerHTML=`
+    <td class="py-2 px-3 text-center text-slate-500 font-bold"><span class="rno"></span></td>
+    <td class="py-2 px-3">${sleekInput('', 'text', 'Aset...', aset, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'number', '1', jml, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'text', 'pcs', sat, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'date', '', tgl, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-hp', 'text', '0', hp, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-ns', 'text', '0', ns, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3">
+      <select class="w-full h-8 px-1 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-[10px] text-white outline-none transition-all cursor-pointer font-bold text-center" onchange="styleKondisi(this); markUnsaved()">${kopts}</select>
+    </td>
+    <td class="py-2 px-3">${sleekInput('', 'text', 'Deskripsi...', ket, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3 text-center"><button class="text-accent-rose bg-accent-rose/10 hover:bg-accent-rose/25 w-7 h-7 rounded-lg active:scale-90 transition-all font-bold" onclick="delRow(this)">×</button></td>
+  `;
+  document.getElementById('bInv').appendChild(tr);
+  const sel = tr.querySelector('select');
+  if(sel) styleKondisi(sel);
+  recalcAll();
+}
+function styleKondisi(sel){
+  if(!sel) return;
+  const v=sel.value;
+  sel.className = 'w-full h-8 px-1 bg-slate-900 border border-slate-800 rounded-lg text-[11px] outline-none cursor-pointer font-bold text-center '+(v==='Baik'?'text-accent-emerald':v==='Rusak'?'text-accent-rose':'text-accent-amber');
+}
+
+function addProduk(kode='', nama='', kategori='', stok='', sat='', hpp='', hj=''){
+  const tr=document.createElement('tr');
+  const kopts=katProduk.map(k=>`<option ${k===kategori?'selected':''}>${k}</option>`).join('');
+  tr.innerHTML=`
+    <td class="py-2 px-3 text-center text-slate-500 font-bold"><span class="rno"></span></td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'text', 'K01', kode, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('inp-pnama', 'text', 'Barang...', nama, 'oninput="markUnsaved(); recalcAll()"')}</td>
+    <td class="py-2 px-3">
+      <select class="w-full h-8 px-2 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-xs text-white outline-none transition-all cursor-pointer" onchange="markUnsaved()"><option value="">-- Kategori --</option>${kopts}</select>
+    </td>
+    <td class="py-2 px-3">${sleekInput('text-center inp-stok', 'number', '0', stok, 'oninput="markUnsaved(); recalcAll()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'text', 'pcs', sat, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-hpp', 'text', '0', hpp, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-hj', 'text', '0', hj, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3 text-right"><span class="cell-mg text-[11px] font-bold text-accent-indigo">0.00%</span></td>
+    <td class="py-2 px-3 text-right"><span class="cell-sv text-[11px] font-bold text-accent-emerald">Rp 0</span></td>
+    <td class="py-2 px-3 text-center"><button class="text-accent-rose bg-accent-rose/10 hover:bg-accent-rose/25 w-7 h-7 rounded-lg active:scale-90 transition-all font-bold" onclick="delRow(this)">×</button></td>
+  `;
+  document.getElementById('bProduk').appendChild(tr);recalcAll();
+}
+
+function addJual(tgl='', nofaktur='', produk='', pembeli='', qty='', sat='', hj='', hpp='', status='Lunas'){
+  const tr=document.createElement('tr');
+  const sopts=statusTx.map(s=>`<option ${s===status?'selected':''}>${s}</option>`).join('');
+  tr.innerHTML=`
+    <td class="py-2 px-3 text-center text-slate-500 font-bold"><span class="rno"></span></td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'date', '', tgl, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'text', 'F001', nofaktur, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('inp-ptx', 'text', 'Produk...', produk, 'oninput="markUnsaved(); recalcAll()"')}</td>
+    <td class="py-2 px-3">${sleekInput('inp-pembeli', 'text', 'Anggota...', pembeli, 'oninput="markUnsaved(); recalcAll()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center inp-qty', 'number', '1', qty, 'oninput="markUnsaved(); recalcAll()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-center', 'text', 'pcs', sat, 'oninput="markUnsaved()"')}</td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-hjt', 'text', '0', hj, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3 text-right"><span class="cell-sub text-[11px] font-bold text-accent-emerald">Rp 0</span></td>
+    <td class="py-2 px-3">${sleekInput('text-right inp-hppt', 'text', 'HPP', hpp, 'oninput="currencyInput(event)"')}</td>
+    <td class="py-2 px-3 text-right"><span class="cell-laba text-[11px] font-bold text-accent-indigo">Rp 0</span></td>
+    <td class="py-2 px-3 text-center"><span class="cell-poin"></span></td>
+    <td class="py-2 px-3">
+      <select class="w-full h-8 px-1 bg-slate-900 border border-slate-800 focus:border-accent-indigo rounded-lg text-[10px] text-white outline-none transition-all cursor-pointer font-bold text-center" onchange="styleStatus(this); markUnsaved()">${sopts}</select>
+    </td>
+    <td class="py-2 px-3 text-center"><button class="text-accent-rose bg-accent-rose/10 hover:bg-accent-rose/25 w-7 h-7 rounded-lg active:scale-90 transition-all font-bold" onclick="delRow(this)">×</button></td>
+  `;
+  document.getElementById('bJual').appendChild(tr);
+  const sel = tr.querySelector('select:last-of-type');
+  if(sel) styleStatus(sel);
+  recalcAll();
+}
+function styleStatus(sel){
+  if(!sel) return;
+  const v=sel.value;
+  sel.className = 'w-full h-8 px-1 bg-slate-900 border border-slate-800 rounded-lg text-[11px] outline-none cursor-pointer font-bold text-center '+(v==='Lunas'?'text-accent-emerald':v==='Kredit'?'text-accent-amber':'text-accent-rose');
+}
+
+/* ══════════════════════════════════════
+   STREAMING_CHUNK: Scripting Simpanan Wajib core logic integration...
+══════════════════════════════════════ */
+window.simpananWajib={};
+window.swSelected={};
+window.swLog=[];
+const BULAN_NAMES=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+function getBulanKey(y,m){return y+'-'+String(m).padStart(2,'0');}
+function getBulanLabel(key){const[y,m]=key.split('-');return BULAN_NAMES[parseInt(m)-1]+' '+y;}
+function getAnggotaList(){const l=[];document.querySelectorAll('#bAnggota tr').forEach(tr=>{const nama=tr.querySelector('.inp-nama')?.value?.trim();const usaha=tr.querySelectorAll('input')[1]?.value?.trim();const wajib=parse(tr.querySelector('.inp-wajib')?.value)||0;if(nama)l.push({nama,usaha,wajib});});return l;}
+function getAvailableBulan(){const now=new Date();const l=[];for(let i=-11;i<=2;i++){const d=new Date(now.getFullYear(),now.getMonth()+i,1);l.push(getBulanKey(d.getFullYear(),d.getMonth()+1));}return l;}
+function getCurrentBulan(){const p=document.getElementById('periode').value;if(p)return p;const now=new Date();return getBulanKey(now.getFullYear(),now.getMonth()+1);}
+
+function initSwFilter(){
+  const sel=document.getElementById('swFilterBulan');if(!sel)return;
+  const curr=getCurrentBulan(),list=getAvailableBulan();
+  sel.innerHTML=list.map(b=>`<option value="${b}" ${b===curr?'selected':''}>${getBulanLabel(b)}</option>`).join('');
+}
+
+function swToggleMonth(nama,bulan){
+  const sw=window.simpananWajib[nama]||{};
+  if(sw[bulan]?.paid)return;
+  if(!window.swSelected[nama])window.swSelected[nama]=new Set();
+  const sel=window.swSelected[nama];
+  if(sel.has(bulan))sel.delete(bulan);else sel.add(bulan);
+  renderSwCard(nama);
+}
+
+function swSelectAllUnpaid(nama){
+  const avail=getAvailableBulan(),curr=getCurrentBulan(),sw=window.simpananWajib[nama]||{};
+  if(!window.swSelected[nama])window.swSelected[nama]=new Set();
+  const sel=window.swSelected[nama];
+  avail.forEach(b=>{if(b<=curr&&!sw[b]?.paid)sel.add(b);});
+  renderSwCard(nama);
+}
+
+function swClearSelection(nama){if(window.swSelected[nama])window.swSelected[nama].clear();renderSwCard(nama);}
+
+function swPaySelected(nama,wajibDefault){
+  const sel=window.swSelected[nama]||new Set();
+  if(sel.size===0){showToast('⚠️ Pilih bulan terlebih dahulu!');return;}
+  const inputId='sw_amt_'+nama.replace(/\W/g,'_');
+  const el=document.getElementById(inputId);if(!el)return;
+  const amt=parseInt(el.value.replace(/[^\d]/g,''))||0;
+  if(!amt){el.classList.add('border-accent-rose');el.focus();showToast('⚠️ Tentukan nominal setoran!');return;}
+  el.classList.remove('border-accent-rose');
+  const now=new Date();
+  const ts=now.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(!window.simpananWajib[nama])window.simpananWajib[nama]={};
+  const sortedMonths=[...sel].sort();
+  sortedMonths.forEach(bulan=>{window.simpananWajib[nama][bulan]={paid:true,amount:amt,timestamp:ts};window.swLog.unshift({nama,bulan,amount:amt,time:ts});});
+  if(window.swLog.length>30)window.swLog.length=30;
+  window.swSelected[nama].clear();
+  showToast(`✅ ${nama} — ${sortedMonths.length} bulan lunas! Total: ${fmt(amt*sortedMonths.length)}`);
+  markUnsaved();
+  renderSimpananWajib();
+  updateSwSummaryCards();
+  renderSwRekap();
+}
+
+function undoSimwaj(nama,bulan){
+  if(window.simpananWajib[nama])delete window.simpananWajib[nama][bulan];
+  window.swLog=window.swLog.filter(l=>!(l.nama===nama&&l.bulan===bulan));
+  markUnsaved();
+  renderSimpananWajib();
+  updateSwSummaryCards();
+  renderSwRekap();
+  showToast('↩ Pembayaran '+getBulanLabel(bulan)+' dibatalkan');
+}
+
+function updateSwSummaryCards(){
+  const anggota=getAnggotaList();
+  const currBulan=document.getElementById('swFilterBulan')?.value||getCurrentBulan();
+  let totalTerkumpul=0,sudah=0,belum=0;
+  anggota.forEach(a=>{
+    const paid=window.simpananWajib[a.nama]?.[currBulan]?.paid;
+    if(paid){sudah++;totalTerkumpul+=window.simpananWajib[a.nama][currBulan].amount;}else belum++;
+  });
+  const total=sudah+belum,pct=total>0?Math.round(sudah/total*100):0;
+  document.getElementById('swTotalBulan').textContent=fmt(totalTerkumpul);
+  document.getElementById('swSudahBayar').textContent=sudah+' Org';
+  document.getElementById('swBelumBayar').textContent=belum+' Org';
+  document.getElementById('swProgress').textContent=pct+'%';
+  const sudahList=anggota.filter(a=>window.simpananWajib[a.nama]?.[currBulan]?.paid);
+  const belumList=anggota.filter(a=>!window.simpananWajib[a.nama]?.[currBulan]?.paid);
+  const tot=sudahList.reduce((s,a)=>s+(window.simpananWajib[a.nama]?.[currBulan]?.amount||0),0);
+  const bar=document.getElementById('swSummaryBar');
+  if(bar)bar.innerHTML=`
+    <div class="p-3 bg-slate-950/40 rounded-xl border border-slate-800"><span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Periode</span><span class="text-xs font-extrabold text-accent-indigo">${getBulanLabel(currBulan)}</span></div>
+    <div class="p-3 bg-slate-950/40 rounded-xl border border-slate-800"><span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Sudah Setor</span><span class="text-xs font-extrabold text-accent-emerald">${sudahList.length} Anggota</span></div>
+    <div class="p-3 bg-slate-950/40 rounded-xl border border-slate-800"><span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tunggak</span><span class="text-xs font-extrabold text-accent-rose">${belumList.length} Anggota</span></div>
+    <div class="p-3 bg-slate-950/40 rounded-xl border border-slate-800"><span class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Bulan Setoran</span><span class="text-xs font-extrabold text-white">${fmt(tot)}</span></div>`;
+}
+
+function renderSwRekap(){
+  const anggota=getAnggotaList(),avail=getAvailableBulan(),curr=getCurrentBulan();
+  const pastMonths=avail.filter(b=>b<=curr);
+  const tbody=document.getElementById('bSwRekap');if(!tbody)return;
+  tbody.innerHTML='';
+  let grandTotal=0,grandLunas=0,grandBelum=0;
+  anggota.forEach((a,i)=>{
+    const sw=window.simpananWajib[a.nama]||{};
+    const paidMonths=pastMonths.filter(b=>sw[b]?.paid);
+    const unpaidMonths=pastMonths.filter(b=>!sw[b]?.paid);
+    const totalBayar=paidMonths.reduce((s,b)=>s+(sw[b]?.amount||0),0);
+    const pct=pastMonths.length>0?Math.round(paidMonths.length/pastMonths.length*100):100;
+    const barColor=pct===100?'bg-accent-emerald':pct>=50?'bg-accent-amber':'bg-accent-rose';
+    const textColor=pct===100?'text-accent-emerald':pct>=50?'text-accent-amber':'text-accent-rose';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="py-2 px-3 text-center text-slate-500 font-bold">${i+1}</td><td class="py-2 px-3 font-bold text-white">${a.nama}<br><span class="text-[9px] text-slate-500 font-normal">${a.usaha||'Unit Usaha'}</span></td><td class="py-2 px-3 text-center text-accent-teal font-semibold">${fmt(a.wajib)}</td><td class="py-2 px-3 text-center text-accent-emerald font-bold">${paidMonths.length}</td><td class="py-2 px-3 text-center text-accent-rose font-bold">${unpaidMonths.length}</td><td class="py-2 px-3 text-right font-extrabold text-accent-emerald">${fmt(totalBayar)}</td><td class="py-2 px-3"><div class="flex items-center gap-2"><div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden"><div class="h-full ${barColor} rounded-full" style="width:${pct}%"></div></div><span class="text-[10px] font-bold ${textColor}">${pct}%</span></div></td>`;
+    tbody.appendChild(tr);
+    grandTotal+=totalBayar;grandLunas+=paidMonths.length;grandBelum+=unpaidMonths.length;
+  });
+  document.getElementById('swTotBulanLunas').textContent=grandLunas;
+  document.getElementById('swTotBulanBelum').textContent=grandBelum;
+  document.getElementById('swTotSemuaBayar').textContent=fmt(grandTotal);
+}
+
+function renderSwCard(nama){
+  const el=document.getElementById('swcard_'+nama.replace(/\W/g,'_'));
+  if(!el)return;
+  const a=getAnggotaList().find(x=>x.nama===nama);
+  if(!a)return;
+  el.innerHTML=buildSwCardInner(a);
+}
+
+function buildSwCardInner(a){
+  const avail=getAvailableBulan(),curr=getCurrentBulan();
+  const sw=window.simpananWajib[a.nama]||{},sel=window.swSelected[a.nama]||new Set();
+  const paidBulans=avail.filter(b=>sw[b]?.paid);
+  const unpaidBulans=avail.filter(b=>b<=curr&&!sw[b]?.paid);
+  const selCount=sel.size,safeName=a.nama.replace(/\W/g,'_');
+  
+  const pills=avail.map(b=>{
+    const paid=sw[b]?.paid,isSel=sel.has(b),isPast=b<=curr;
+    const[,m]=b.split('-'),shortName=BULAN_NAMES[parseInt(m)-1].substring(0,3),yr=b.split('-')[0].substring(2);
+    let cls='sw-month-pill';if(paid)cls+=' paid';else if(isSel)cls+=' selected';
+    return`<div class="${cls}" ${!paid?`onclick="swToggleMonth('${a.nama}','${b}')"`:''} style="${!isPast&&!paid?'opacity:.45;cursor:not-allowed':''}"><div class="pill-sel-dot"></div><div class="pill-chk">✓</div><span class="pill-name">${shortName}</span><span class="pill-yr">${yr}</span></div>`;
+  }).join('');
+  
+  const paidTags=paidBulans.length>0?`<div class="px-4 py-2 bg-slate-900/30 rounded-xl mx-4 mb-3"><div class="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-2">Riwayat Pembayaran</div><div class="sw-paid-months">`+paidBulans.map(b=>`<div class="sw-paid-tag">${getBulanLabel(b).substring(0,6)} <span class="ptag-amt">(${fmt(sw[b].amount)})</span><button onclick="undoSimwaj('${a.nama}','${b}')">×</button></div>`).join('')+`</div></div>`:'';
+  const unpaidHint=unpaidBulans.length>0?`<div class="px-4 pb-3 text-[10px] text-accent-rose font-bold">⚠️ ${unpaidBulans.length} bulan tertunggak: ${unpaidBulans.map(b=>getBulanLabel(b).substring(0,3)).join(', ')}</div>`:`<div class="px-4 pb-3 text-[10px] text-accent-emerald font-bold">✅ Sempurna! Semua tagihan bulanan lunas.</div>`;
+  const quickActions=`<div class="flex items-center gap-2 px-4 pb-3"><span class="text-[9px] font-bold text-slate-500 uppercase">Pilih Cepat:</span><button class="sw-quick-btn" onclick="swToggleMonth('${a.nama}','${curr}')">Bulan Ini</button><button class="sw-quick-btn" onclick="swSelectAllUnpaid('${a.nama}')">Tunggakan</button>${selCount>0?`<button class="sw-clear-btn" onclick="swClearSelection('${a.nama}')">✕ Batal (${selCount})</button>`:''}</div>`;
+  const selTags=selCount>0?`<div class="px-4 pb-3"><div class="text-[9px] font-bold text-accent-indigo uppercase mb-1.5">Bulan Dipilih</div><div class="flex flex-wrap gap-1.5">`+[...sel].sort().map(b=>`<div class="sw-sel-tag">${getBulanLabel(b).substring(0,6)} <button onclick="swToggleMonth('${a.nama}','${b}')">×</button></div>`).join('')+`</div></div>`:'';
+  
+  const inputId='sw_amt_'+safeName;
+  const perBulan=a.wajib?Number(a.wajib).toLocaleString('id-ID'):'';
+  const totalHint=selCount>0&&a.wajib?`<div class="text-[10px] text-accent-indigo mb-2">Kasir Checkout: ${selCount} bulan × ${fmt(a.wajib)} = <strong class="text-white">${fmt(a.wajib*selCount)}</strong></div>`:'';
+  const payPanel=`<div class="sw-pay-panel"><div class="sw-pay-panel-title">💳 Mesin Checkout Kasir</div>${totalHint}<div class="sw-pay-row"><input type="text" id="${inputId}" placeholder="Jumlah setoran wajib/bulan (Rp)..." value="${perBulan}" oninput="(function(el){const r=el.value.replace(/[^\\d]/g,'');el.value=r?Number(r).toLocaleString('id-ID'):'';el.classList.remove('border-accent-rose');})(this)"><button class="sw-pay-btn" ${selCount===0?'disabled':''} onclick="swPaySelected('${a.nama}',${a.wajib||0})">💳 ${selCount>0?`Bayar ${selCount} Bulan`:'Pilih Baris'}</button></div></div>`;
+  
+  const paidThisCurr=sw[curr]?.paid;
+  const totalPaidCount=avail.filter(b=>sw[b]?.paid).length;
+  const totalTerbayar=Object.values(sw).filter(v=>v.paid).reduce((s,v)=>s+v.amount,0);
+  
+  return`
+    <div class="sw-card-head flex items-center justify-between p-4 bg-slate-900/50 border-b border-obsidian-border">
+      <div>
+        <div class="sw-nama text-sm font-extrabold text-white">${a.nama}</div>
+        <div class="sw-usaha text-[10px] text-slate-500">${a.usaha||'Unit Usaha'} &nbsp;•&nbsp; Wajib: ${fmt(a.wajib)}/bln</div>
+      </div>
+      <div class="text-right">
+        <span class="px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full ${paidThisCurr?'bg-accent-emerald/10 text-accent-emerald':'bg-accent-rose/10 text-accent-rose'}">${paidThisCurr?'Lunas Bln Ini':'Tunggak Bln Ini'}</span>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 border-b border-obsidian-border text-xs">
+      <div class="p-3 border-r border-obsidian-border"><span class="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Total Bayar</span><span class="font-extrabold text-accent-emerald text-sm">${fmt(totalTerbayar)}</span></div>
+      <div class="p-3 border-r border-obsidian-border"><span class="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Bulan Lunas</span><span class="font-extrabold text-accent-teal text-sm">${totalPaidCount} Bln</span></div>
+      <div class="p-3"><span class="text-[9px] text-slate-500 uppercase font-bold block mb-0.5">Tunggakan</span><span class="font-extrabold ${unpaidBulans.length>0?'text-accent-rose':'text-slate-500'} text-sm">${unpaidBulans.length} Bln</span></div>
+    </div>
+    <div class="text-[10px] text-slate-400 p-4 pb-2">Sentuh & pilih baris kotak bulan berikut:</div>
+    <div class="sw-months px-4 py-2">${pills}</div>
+    ${unpaidHint}
+    ${paidTags}
+    ${quickActions}
+    ${selTags}
+    ${payPanel}
+  `;
+}
+
+function renderSimpananWajib(){
+  const anggota=getAnggotaList(),grid=document.getElementById('swGrid');if(!grid)return;
+  if(anggota.length===0){grid.innerHTML='<div class="py-12 text-center text-slate-500 text-xs font-bold w-full">⚠️ Database anggota kosong. Silahkan buat data anggota baru di tab Kas 📊.</div>';return;}
+  grid.innerHTML='';
+  anggota.forEach(a=>{
+    const safeName=a.nama.replace(/\W/g,'_');
+    const card=document.createElement('div');
+    card.className='sw-card border border-obsidian-border bg-obsidian-card rounded-2xl overflow-hidden shadow-lg';
+    card.id='swcard_'+safeName;
+    card.innerHTML=buildSwCardInner(a);
+    grid.appendChild(card);
+  });
+  
+  const logList=document.getElementById('swLogList'),logContainer=document.getElementById('swLogContainer');
+  if(window.swLog.length>0){
+    logContainer.classList.remove('hidden');
+    logList.innerHTML=window.swLog.slice(0,5).map(l=>`
+      <div class="flex items-center justify-between text-[11px] p-2 bg-slate-900 border border-slate-800 rounded-lg">
+        <div class="flex items-center gap-1.5">
+          <span class="text-accent-emerald">✓</span>
+          <span class="font-bold text-white">${l.nama}</span>
+          <span class="text-slate-500">— ${getBulanLabel(l.bulan).substring(0,7)}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-extrabold text-accent-emerald">${fmt(l.amount)}</span>
+          <button onclick="undoSimwaj('${l.nama}','${l.bulan}')" class="text-[9px] font-bold text-accent-rose hover:bg-accent-rose/10 px-2 py-0.5 rounded-md">Batal</button>
+        </div>
+      </div>
+    `).join('');
+  }else{logContainer.classList.add('hidden');}
+  updateSwSummaryCards();renderSwRekap();
+}
+
+/* ══════════════════════════════════════
+   STREAMING_CHUNK: Styling additional inputs, buttons, and custom month layout...
+══════════════════════════════════════ */
+const dynamicInputsStyle = `
+  .sw-paid-months { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sw-paid-tag { display: inline-flex; align-items: center; gap: 4px; background: rgba(16, 185, 129, 0.1); border: 1.5px solid rgba(16, 185, 129, 0.2); color: #10b981; padding: 3px 8px; border-radius: 99px; font-[9px] font-bold; }
+  .sw-paid-tag button { border: none; background: transparent; color: #f43f5e; cursor: pointer; font-size: 11px; margin-left: 2px; }
+  .sw-month-pill { display: flex; flex-direction: column; items: center; justify-content: center; height: 38px; border-radius: 8px; border: 1.5px solid #1e293b; background: #090d16; cursor: pointer; user-select: none; transition: all 0.2s; }
+  .sw-month-pill.paid { border-color: #10b981; background: rgba(16, 185, 129, 0.15); color: #10b981; }
+  .sw-month-pill.selected { border-color: #6366f1; background: rgba(99, 102, 241, 0.15); color: #8b5cf6; border-width: 2px; }
+  .sw-month-pill.paid .pill-chk { opacity: 1; }
+  .sw-month-pill.selected .pill-sel-dot { display: block; }
+  .pill-name { font-size: 10px; font-weight: bold; }
+  .pill-yr { font-size: 7px; opacity: 0.5; }
+  .pill-chk { position: absolute; top: 1px; right: 3px; font-size: 8px; opacity: 0; }
+  .pill-sel-dot { position: absolute; top: 2px; left: 2px; width: 4px; height: 4px; border-radius: 50%; background: #6366f1; display: none; }
+  .sw-quick-btn { border: 1.5px solid #6366f1; background: rgba(99, 102, 241, 0.1); color: #6366f1; border-radius: 6px; padding: 3px 8px; font-size: 9px; font-weight: bold; transition: all 0.2s; }
+  .sw-quick-btn:active { background: #6366f1; color: white; }
+  .sw-clear-btn { border: 1.5px solid #1e293b; background: transparent; color: #64748b; border-radius: 6px; padding: 3px 8px; font-size: 9px; font-weight: bold; }
+  .sw-sel-tag { display: inline-flex; align-items: center; gap: 4px; background: rgba(99, 102, 241, 0.15); color: #8b5cf6; padding: 3px 8px; border-radius: 99px; font-size: 9px; font-weight: bold; }
+  .sw-sel-tag button { border: none; background: transparent; color: #f43f5e; cursor: pointer; font-size: 11px; }
+  .sw-pay-panel { padding: 12px 16px; border-t: 1.5px solid #1e293b; background: rgba(15, 23, 42, 0.2); }
+  .sw-pay-panel-title { font-[9px] font-bold text-slate-500 uppercase tracking-wider mb-2; }
+  .sw-pay-row { display: flex; gap: 8px; }
+  .sw-pay-row input { flex: 1; h-9 px-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white outline-none; }
+  .sw-pay-btn { border: none; background: #10b981; color: white; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+  .sw-pay-btn:active { background: #059669; }
+  .sw-pay-btn:disabled { background: #1e293b; color: #475569; cursor: not-allowed; }
+`;
+const swStyles = document.createElement('style');
+swStyles.innerHTML = dynamicInputsStyle;
+document.head.appendChild(swStyles);
+
+/* ══════════════════════════════════════
+   STREAMING_CHUNK: Structuring professional report generation (PDF, Excel, Word)...
+══════════════════════════════════════ */
+function exportPDF(){
+  showToast('📄 Menyiapkan halaman cetak...');
+  setTimeout(()=>window.print(), 350);
+}
+
+function exportExcel(){
+  if(typeof XLSX==='undefined'){showToast('⚠️ Pustaka Excel tidak siap!');return;}
+  recalcAll();const meta=getMeta();const wb=XLSX.utils.book_new();
+  
+  const rs=[
+    [meta.nama],
+    ['Periode',meta.periode,'No. BH',meta.bh],
+    ['Alamat',meta.alamat],
+    [],
+    ['RINGKASAN'],
+    ['Total Pemasukan',document.getElementById('sumMasuk').textContent],
+    ['Total Pengeluaran',document.getElementById('sumKeluar').textContent],
+    ['Saldo Bersih',document.getElementById('sumSaldo').textContent],
+    [],
+    ['SHU Bruto',document.getElementById('shuBruto').textContent],
+    ['SHU Dibagi Anggota',document.getElementById('shuAnggota').textContent],
+    ['Dana Cadangan',document.getElementById('shuCadangan').textContent],
+    ['Dana Operasional',document.getElementById('shuOps').textContent]
+  ];
+  const wsR=XLSX.utils.aoa_to_sheet(rs);wsR['!cols']=[{wch:34},{wch:26}];XLSX.utils.book_append_sheet(wb,wsR,'Ringkasan');
+  
+  [['Anggota','tblAnggota','bAnggota'],['Pemasukan','tblMasuk','bMasuk'],['Pengeluaran','tblKeluar','bKeluar'],['Inventaris','tblInv','bInv']].forEach(([lbl,th,tb])=>{
+    const h=readHdr(th);const r=readTbl(tb);
+    const ws=XLSX.utils.aoa_to_sheet([[meta.nama],['Periode: '+meta.periode],[],h,...r]);
+    ws['!cols']=h.map(()=>({wch:22}));
+    XLSX.utils.book_append_sheet(wb,ws,lbl);
+  });
+  
+  const hP=readHdr('tblProduk');const rP=readTbl('bProduk');
+  const wsP=XLSX.utils.aoa_to_sheet([[meta.nama],[],hP,...rP]);
+  wsP['!cols']=hP.map(()=>({wch:20}));XLSX.utils.book_append_sheet(wb,wsP,'Produk');
+  
+  const hJ=readHdr('tblJual');const rJ=readTbl('bJual');
+  const wsJ=XLSX.utils.aoa_to_sheet([[meta.nama],[],hJ,...rJ]);
+  wsJ['!cols']=hJ.map(()=>({wch:20}));XLSX.utils.book_append_sheet(wb,wsJ,'Penjualan');
+  
+  const hSHU=readHdr('tblSHU');const rSHU=readTbl('bSHU');
+  const wsSHU=XLSX.utils.aoa_to_sheet([[meta.nama],[],hSHU,...rSHU]);
+  wsSHU['!cols']=hSHU.map(()=>({wch:22}));XLSX.utils.book_append_sheet(wb,wsSHU,'SHU');
+  
+  XLSX.writeFile(wb,'SIMKOP_'+(meta.periode||'').replace('-','')+'.xlsx');
+  showToast('✅ Berkas Excel diunduh!');
+}
+
+function exportWord(){
+  recalcAll();const meta=getMeta();
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Calibri,Arial,sans-serif;font-size:12px;margin:36px 42px;}.kop{text-align:center;border-bottom:3px double #0d2137;padding-bottom:12px;margin-bottom:16px;}.kop h1{font-size:16px;font-weight:bold;color:#0f172a;margin:0 0 3px;}.kop p{font-size:11px;color:#555;margin:2px 0;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#6366f1;color:#fff;padding:5px 9px;font-size:10px;text-align:left;}td{padding:5px 9px;border:1px solid #ddd;font-size:11px;}tr:nth-child(even){background:#f8fafc;}h2{color:#0f172a;border-left:4px solid #6366f1;padding-left:8px;font-size:13px;margin:20px 0 6px;}</style></head><body>
+  <div class="kop"><h1>${meta.nama}</h1><p>Periode: <b>${meta.periode}</b> | No. BH: <b>${meta.bh||'-'}</b></p><p>${meta.alamat||''}</p></div>
+  <h2>Ringkasan Laporan Keuangan</h2>
+  <table><tr><th>Uraian Rekening</th><th>Jumlah Nominal</th></tr>
+  <tr><td>Total Pemasukan</td><td>${document.getElementById('sumMasuk').textContent}</td></tr>
+  <tr><td>Total Pengeluaran</td><td>${document.getElementById('sumKeluar').textContent}</td></tr>
+  <tr><td>Saldo Kas Bersih</td><td>${document.getElementById('sumSaldo').textContent}</td></tr>
+  <tr><td>SHU Bruto Terbuka</td><td>${document.getElementById('shuBruto').textContent}</td></tr></table>
+  </body></html>`;
+  
+  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download='SIMKOP_'+(meta.periode||'').replace('-','')+'.doc';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast('✅ Dokumen Word diunduh!');
+}
+
+function readHdr(tableId){const h=[];document.querySelectorAll('#'+tableId+' thead th').forEach(th=>h.push(th.textContent.trim()));h.pop();return h;}
+function readTbl(tbodyId){const rows=[];document.querySelectorAll('#'+tbodyId+' tr').forEach(tr=>{const cells=[];const tds=[...tr.querySelectorAll('td')];tds.slice(0,tds.length-1).forEach(td=>{const sp=td.querySelector('span.rno');const el=td.querySelector('input,select');const spn=td.querySelector('span:not(.rno)');if(sp)cells.push(sp.textContent.trim());else if(el)cells.push(el.value.trim());else if(spn)cells.push(spn.textContent.trim());else cells.push(td.textContent.trim());});rows.push(cells);});return rows;}
+
+/* ══════════════════════════════════════
+   DATABASE ENGINE INITIALIZATION
+══════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded',()=>{
+  const loaded = loadAllData();
+
+  if(!loaded){
+    const now=new Date();
+    document.getElementById('periode').value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  }
+
+  validatePct();
+  recalcAll();
+  initSwFilter();
+
+  setInterval(()=>{ if(unsavedChanges) saveAll(false); }, 30000);
+
+  window.addEventListener('beforeunload', e=>{
+    if(unsavedChanges){
+      saveAll(false);
+    }
+  });
+
+  if(loaded){
+    document.getElementById('saveDot').className='w-2.5 h-2.5 rounded-full bg-accent-emerald animate-neon-pulse';
+    document.getElementById('saveTxt').textContent='Sinkron Perangkat ✓';
+    triggerIsland('💾 Data otomatis dimuat!');
+    setTimeout(()=>{document.getElementById('saveTxt').textContent='Sinkron Perangkat';},3000);
+  }
+});
+</script>
+</body>
+</html>

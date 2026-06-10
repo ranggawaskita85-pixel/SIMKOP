@@ -1,0 +1,17 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.simkop.desktop
+productName: SIMKOP Desktop
+win:
+  target: nsis
+  icon: assets/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+files: []
+electronVersion: 28.3.3
